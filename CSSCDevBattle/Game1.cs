@@ -6,12 +6,13 @@ namespace CSCCDevBattle;
 public class Game1 : Game
 {
     private readonly GraphicsDeviceManager _graphics;
-
     public SpriteBatch SpriteBatch { get; private set; } = null!;
     public Texture2D Pixel { get; private set; } = null!;
-
+#if DEBUG
     public bool DebugEnabled { get; private set; } = true;
-
+#else
+    public bool DebugEnabled { get; private set; } = false;
+#endif
     public Game1()
     {
         _graphics = new GraphicsDeviceManager(this);
