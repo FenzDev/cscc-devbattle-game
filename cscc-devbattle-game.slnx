@@ -1,4 +1,4 @@
 <Solution>
   <Project Path="ContentBuilder/ContentBuilder.csproj" />
-  <Project Path="CSSCDevBattle/CSSCDevBattle.csproj" />
+  <Project Path="CSCCDevBattle/CSSCDevBattle.csproj" />
 </Solution>
