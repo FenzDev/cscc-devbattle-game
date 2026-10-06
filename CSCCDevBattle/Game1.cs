@@ -6,15 +6,15 @@ namespace CSCCDevBattle;
 public class Game1 : Game
 {
   private readonly GraphicsDeviceManager _graphics;
-  public static SpriteBatch SpriteBatch { get; private set; } = null!;
-  public static Texture2D Pixel { get; private set; } = null!;
+  public SpriteBatch SpriteBatch { get; private set; } = null!;
+  public Texture2D Pixel { get; private set; } = null!;
 #if DEBUG
-  public static bool DebugEnabled { get; private set; } = true;
+  public bool DebugEnabled { get; private set; } = true;
 #else
     public bool DebugEnabled { get; private set; } = false;
 #endif
 
-  public static Scene CurrentScene { get; private set; }
+  public Scene CurrentScene { get; private set; }
 
   public Game1()
   {
@@ -23,8 +23,13 @@ public class Game1 : Game
     Content.RootDirectory = "Content";
     IsMouseVisible = true;
 
-    _graphics.PreferredBackBufferWidth = 960;
-    _graphics.PreferredBackBufferHeight = 540;
+    _graphics.PreferredBackBufferWidth = 640;
+    _graphics.PreferredBackBufferHeight = 640;
+    #if DEBUG
+    _graphics.IsFullScreen = false;
+    #else
+    _graphics.IsFullScreen = true;
+    #endif
   }
 
   protected override void LoadContent()
@@ -34,36 +39,43 @@ public class Game1 : Game
     Pixel = new Texture2D(GraphicsDevice, 1, 1);
     Pixel.SetData([Color.White]);
 
-    CurrentScene = new MainMenuScene();
+    GoToScene(new MainMenuScene());
   }
 
   // private bool _SceneIsRunning = false;
-  private bool _StartingScene = true;
+  private bool _StartingScene = false;
   private bool _LeavingScene = false;
   private Scene _NextScene = null;
   protected override void Update(GameTime gameTime)
   {
+    Input.Update();
+
     if (CurrentScene is null)
     {
       base.Update(gameTime);
       return;
-    } 
-
-    if (_StartingScene && CurrentScene.SetupTick(gameTime) == TransitionState.Finished)
-    {
-      _StartingScene = false;
     }
-    else if (_LeavingScene && CurrentScene.CleanupTick(gameTime) == TransitionState.Finished)
+
+    if (_StartingScene)
     {
-      _LeavingScene = false;
-      CurrentScene = _NextScene;
-      if (_NextScene is not null)
+      if (CurrentScene.SetupTick(gameTime) == TransitionState.Finished)
       {
+        _StartingScene = false;
+      }
+    }
+    else if (_LeavingScene)
+    {
+      if (CurrentScene.CleanupTick(gameTime) == TransitionState.Finished)
+      {
+        _LeavingScene = false;
+
+        CurrentScene = _NextScene;
         _StartingScene = true;
       }
-    } else
+    }
+    else
     {
-      CurrentScene.Tick(gameTime);
+      CurrentScene.Tick(gameTime, this);
     }
 
     base.Update(gameTime);
@@ -73,15 +85,24 @@ public class Game1 : Game
   {
     GraphicsDevice.Clear(Color.Gray);
 
-    SpriteBatch.Begin(samplerState: SamplerState.PointClamp);
+    CurrentScene.Draw(gameTime, this);
   }
 
   public void GoToScene(Scene scene)
   {
+    if (_StartingScene || _LeavingScene)
+      return;
+
     _NextScene = scene;
-    if (_LeavingScene || _StartingScene) return;
+
     if (CurrentScene is null)
     {
+      CurrentScene = scene;
+      _StartingScene = true;
+    }
+    else
+    {
+      _LeavingScene = true;
     }
   }
 

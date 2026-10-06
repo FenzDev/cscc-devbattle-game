@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "C#: cscc_devbattle_game Debug",
+        "name": "C#: Debug 'CSCCDevBattle'",
         "type": "dotnet",
         "request": "launch",
-        "projectPath": "${workspaceFolder}/cscc_devbattle_game.csproj"
+        "projectPath": "${workspaceFolder}/CSCCDevBattle/CSCCDevBattle.csproj"
       }
     ],
   }
