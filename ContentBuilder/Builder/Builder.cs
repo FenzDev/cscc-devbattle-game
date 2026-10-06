@@ -38,6 +38,8 @@ public class Builder : ContentBuilder
 
         contentCollection.Include<WildcardRule>("*");
 
+        contentCollection.IncludeCopy<WildcardRule>("*.ttf");
+
         return contentCollection;
     }
 }

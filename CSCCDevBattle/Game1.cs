@@ -1,3 +1,4 @@
+using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -8,6 +9,8 @@ public class Game1 : Game
   private readonly GraphicsDeviceManager _graphics;
   public SpriteBatch SpriteBatch { get; private set; } = null!;
   public Texture2D Pixel { get; private set; } = null!;
+  public SpriteFontBase FontTitle { get; private set; }
+  public SpriteFontBase FontText { get; private set; }
 #if DEBUG
   public bool DebugEnabled { get; private set; } = true;
 #else
@@ -23,8 +26,8 @@ public class Game1 : Game
     Content.RootDirectory = "Content";
     IsMouseVisible = true;
 
-    _graphics.PreferredBackBufferWidth = 640;
-    _graphics.PreferredBackBufferHeight = 640;
+    _graphics.PreferredBackBufferWidth = 400;
+    _graphics.PreferredBackBufferHeight = 400;
     #if DEBUG
     _graphics.IsFullScreen = false;
     #else
@@ -32,6 +35,7 @@ public class Game1 : Game
     #endif
   }
 
+  private FontSystem _SansFontSystem; 
   protected override void LoadContent()
   {
     SpriteBatch = new SpriteBatch(GraphicsDevice);
@@ -39,7 +43,16 @@ public class Game1 : Game
     Pixel = new Texture2D(GraphicsDevice, 1, 1);
     Pixel.SetData([Color.White]);
 
-    GoToScene(new MainMenuScene());
+    _SansFontSystem = new FontSystem();
+    using (var font = TitleContainer.OpenStream("Content/Fonts/SansFont.ttf"))
+    {
+      _SansFontSystem.AddFont(font);
+    }
+
+    FontTitle = _SansFontSystem.GetFont(24);
+    FontText = _SansFontSystem.GetFont(16);
+
+    GoToScene(new BattleScene());
   }
 
   // private bool _SceneIsRunning = false;
@@ -75,6 +88,7 @@ public class Game1 : Game
     }
     else
     {
+      CurrentScene.Timers.Update(gameTime);
       CurrentScene.Tick(gameTime, this);
     }
 
