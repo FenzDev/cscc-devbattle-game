@@ -1,28 +1,28 @@
 using Microsoft.Xna.Framework;
 
-public class MainMenuScene : Scene
+public class BattleScene : Scene
 {
-  public MainMenuScene()
+  public BattleScene()
   {
-    
+
   }
 
-  public override TransitionState CleanupTick()
-  {
-    return TransitionState.Finished;
-  }
-
-
-  public override TransitionState SetupTick()
+  public override TransitionState CleanupTick(GameTime gameTime)
   {
     return TransitionState.Finished;
   }
 
+  public override TransitionState SetupTick(GameTime gameTime)
+  {
+    return TransitionState.Finished;
+  }
 
   public override void Draw(GameTime gameTime)
   {
-    
+    throw new System.NotImplementedException();
   }
+
+
   public override void Tick(GameTime gameTime)
   {
     throw new System.NotImplementedException();
