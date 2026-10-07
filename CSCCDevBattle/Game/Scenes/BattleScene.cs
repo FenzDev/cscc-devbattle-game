@@ -2,16 +2,36 @@ using CSCCDevBattle;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using FontStashSharp;
+using Microsoft.Xna.Framework.Graphics;
 
 public class BattleScene : Scene
 {
-  public BattleContext BattleContext = new ();
+  public BattleContext BattleContext = new();
   private TimersManager.Timer actionTimer;
 
   public BattleScene()
   {
     actionTimer = Timers.StartAfter(5.0f);
+
+    SetupDebug();
   }
+
+  bool _DebugIsMagentaScreen;
+  private void SetupDebug()
+  {
+    Debug.Register(
+    Keys.F1,
+    "Magenta Screen",
+    () =>
+    {
+      _DebugIsMagentaScreen = !_DebugIsMagentaScreen;
+    },
+    () => _DebugIsMagentaScreen
+      ? "Enabled"
+      : "Disabled"
+);
+  }
+
 
   private float _fade = 1.0f;
   const float FADE_SPEED = 5.0f;
@@ -40,14 +60,19 @@ public class BattleScene : Scene
 
   public override void Draw(GameTime gameTime, Game1 game)
   {
-    game.GraphicsDevice.Clear(Color.Green);
-
+    if (_DebugIsMagentaScreen)
+      game.GraphicsDevice.Clear(Color.Red);
+    else
+      game.GraphicsDevice.Clear(Color.Black);
     // Game
-    game.SpriteBatch.Begin();
+    game.SpriteBatch.Begin(
+      samplerState: SamplerState.PointClamp
+    );
+
     game.SpriteBatch.DrawString(
       game.FontText,
-      "Hello\nHi",
-      new (5,5),
+      "Hello\nHi you",
+      new(5, 5),
       Color.White
     );
     game.SpriteBatch.End();

@@ -3,7 +3,8 @@ using Microsoft.Xna.Framework;
 
 public abstract class Scene
 {
-  protected internal TimersManager Timers { get; } = new();
+  public TimersManager Timers { get; } = new();
+  public DebugSystem Debug { get; } = new();
 
   public abstract TransitionState SetupTick(GameTime gameTime);
   public abstract TransitionState CleanupTick(GameTime gameTime);

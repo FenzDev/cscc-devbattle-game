@@ -16,6 +16,11 @@ public static class Input
         return Current.IsKeyDown(key)
             && Previous.IsKeyUp(key);
     }
+    public static bool Released(Keys key)
+    {
+        return Current.IsKeyUp(key)
+            && Previous.IsKeyDown(key);
+    }
 
     public static bool Down(Keys key)
     {

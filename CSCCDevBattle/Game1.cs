@@ -6,8 +6,8 @@ namespace CSCCDevBattle;
 
 public class Game1 : Game
 {
-  private const int BASE_SCREEN_WIDTH = 400;
-  private const int BASE_SCREEN_HEIGHT = 400;
+  private const int BASE_SCREEN_WIDTH = 800;
+  private const int BASE_SCREEN_HEIGHT = 800;
   private const int DEBUG_SCREEN_WIDTH = 800;
   private const int DEBUG_SCREEN_HEIGHT = 800;
 
@@ -16,6 +16,7 @@ public class Game1 : Game
   public Texture2D Pixel { get; private set; } = null!;
   public SpriteFontBase FontTitle { get; private set; }
   public SpriteFontBase FontText { get; private set; }
+  public SpriteFontBase FontDebug { get; private set; }
 
   public Effect PostEffect { get; set; }
 #if DEBUG
@@ -46,6 +47,7 @@ public class Game1 : Game
 
   private RenderTarget2D _ScreenRenderTarget;
   private FontSystem _SansFontSystem;
+  private FontSystem _MonoFontSystem;
   protected override void LoadContent()
   {
     SpriteBatch = new SpriteBatch(GraphicsDevice);
@@ -53,14 +55,26 @@ public class Game1 : Game
     Pixel = new Texture2D(GraphicsDevice, 1, 1);
     Pixel.SetData([Color.White]);
 
-    _SansFontSystem = new FontSystem();
+    _SansFontSystem = new FontSystem(new()
+    {
+      // FontResolutionFactor = 2
+    });
     using (var font = TitleContainer.OpenStream("Content/Fonts/SansFont.ttf"))
     {
       _SansFontSystem.AddFont(font);
     }
+    _MonoFontSystem = new FontSystem(new()
+    {
+      // FontResolutionFactor = 2
+    });
+    using (var font = TitleContainer.OpenStream("Content/Fonts/MonoFont.ttf"))
+    {
+      _MonoFontSystem.AddFont(font);
+    }
 
-    FontTitle = _SansFontSystem.GetFont(24);
-    FontText = _SansFontSystem.GetFont(16);
+    FontTitle = _SansFontSystem.GetFont(48);
+    FontText = _SansFontSystem.GetFont(28);
+    FontDebug = _MonoFontSystem.GetFont(24);
 
     _ScreenRenderTarget = new RenderTarget2D(GraphicsDevice, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT);
 
@@ -101,6 +115,10 @@ public class Game1 : Game
     else
     {
       CurrentScene.Timers.Update(gameTime);
+      if (DebugEnabled)
+      {
+        CurrentScene.Debug.Update(gameTime);
+      }
       CurrentScene.Tick(gameTime, this);
     }
 
@@ -128,6 +146,10 @@ public class Game1 : Game
       )),
       Color.White
     );
+    if (DebugEnabled)
+    {
+      CurrentScene?.Debug.Draw(SpriteBatch, FontDebug, Pixel);
+    }
     SpriteBatch.End();
   }
 
