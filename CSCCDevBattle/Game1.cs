@@ -6,11 +6,18 @@ namespace CSCCDevBattle;
 
 public class Game1 : Game
 {
+  private const int BASE_SCREEN_WIDTH = 400;
+  private const int BASE_SCREEN_HEIGHT = 400;
+  private const int DEBUG_SCREEN_WIDTH = 800;
+  private const int DEBUG_SCREEN_HEIGHT = 800;
+
   private readonly GraphicsDeviceManager _graphics;
   public SpriteBatch SpriteBatch { get; private set; } = null!;
   public Texture2D Pixel { get; private set; } = null!;
   public SpriteFontBase FontTitle { get; private set; }
   public SpriteFontBase FontText { get; private set; }
+
+  public Effect PostEffect { get; set; }
 #if DEBUG
   public bool DebugEnabled { get; private set; } = true;
 #else
@@ -26,16 +33,19 @@ public class Game1 : Game
     Content.RootDirectory = "Content";
     IsMouseVisible = true;
 
-    _graphics.PreferredBackBufferWidth = 400;
-    _graphics.PreferredBackBufferHeight = 400;
-    #if DEBUG
+#if DEBUG
+    _graphics.PreferredBackBufferWidth = DEBUG_SCREEN_WIDTH;
+    _graphics.PreferredBackBufferHeight = DEBUG_SCREEN_HEIGHT;
     _graphics.IsFullScreen = false;
-    #else
+#else
+    _graphics.PreferredBackBufferWidth = BASE_SCREEN_WIDTH;
+    _graphics.PreferredBackBufferHeight = BASE_SCREEN_HEIGHT;
     _graphics.IsFullScreen = true;
-    #endif
+#endif
   }
 
-  private FontSystem _SansFontSystem; 
+  private RenderTarget2D _ScreenRenderTarget;
+  private FontSystem _SansFontSystem;
   protected override void LoadContent()
   {
     SpriteBatch = new SpriteBatch(GraphicsDevice);
@@ -51,6 +61,8 @@ public class Game1 : Game
 
     FontTitle = _SansFontSystem.GetFont(24);
     FontText = _SansFontSystem.GetFont(16);
+
+    _ScreenRenderTarget = new RenderTarget2D(GraphicsDevice, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT);
 
     GoToScene(new BattleScene());
   }
@@ -97,9 +109,26 @@ public class Game1 : Game
 
   protected override void Draw(GameTime gameTime)
   {
-    GraphicsDevice.Clear(Color.Gray);
+    GraphicsDevice.SetRenderTarget(_ScreenRenderTarget);
 
+    GraphicsDevice.Clear(Color.Gray);
     CurrentScene.Draw(gameTime, this);
+
+    GraphicsDevice.SetRenderTargets(null);
+
+    SpriteBatch.Begin(
+      samplerState: SamplerState.PointClamp,
+      effect: PostEffect
+    );
+    SpriteBatch.Draw(
+      _ScreenRenderTarget,
+      new Rectangle(Point.Zero, new(
+        _graphics.PreferredBackBufferWidth,
+        _graphics.PreferredBackBufferHeight
+      )),
+      Color.White
+    );
+    SpriteBatch.End();
   }
 
   public void GoToScene(Scene scene)

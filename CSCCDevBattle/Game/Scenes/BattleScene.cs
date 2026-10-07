@@ -46,7 +46,7 @@ public class BattleScene : Scene
     game.SpriteBatch.Begin();
     game.SpriteBatch.DrawString(
       game.FontText,
-      "Hello",
+      "Hello\nHi",
       new (5,5),
       Color.White
     );
