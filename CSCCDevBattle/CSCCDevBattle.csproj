@@ -7,6 +7,7 @@
   </PropertyGroup>
   
   <PropertyGroup>
+    <UseSharedCompilation>false</UseSharedCompilation>
     <TargetFramework>net10.0</TargetFramework>
     <RollForward>Major</RollForward>
     <PublishReadyToRun>false</PublishReadyToRun>
@@ -34,10 +35,10 @@
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
   </ItemGroup>
 
-  
-  <Target Name="KillRunningGame" BeforeTargets="Build">
+
+  <!-- <Target Name="KillRunningGame" BeforeTargets="BeforeBuild">
       <Exec Command="taskkill /F /IM CSCCDevBattle.exe >nul 2>&amp;1 || exit 0" />
-  </Target>
+  </Target> -->
 
   <Import Project="..\ContentBuilder\BuildContent.targets" />
 </Project>
