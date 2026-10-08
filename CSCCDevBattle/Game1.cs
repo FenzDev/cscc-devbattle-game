@@ -2,14 +2,14 @@ using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace CSCCDevBattle;
-
 public class Game1 : Game
 {
   private const int BASE_SCREEN_WIDTH = 800;
   private const int BASE_SCREEN_HEIGHT = 800;
   private const int DEBUG_SCREEN_WIDTH = 800;
   private const int DEBUG_SCREEN_HEIGHT = 800;
+
+  public static Game1 Singleton {get; private set;}
 
   private readonly GraphicsDeviceManager _graphics;
   public SpriteBatch SpriteBatch { get; private set; } = null!;
@@ -29,6 +29,8 @@ public class Game1 : Game
 
   public Game1()
   {
+    Singleton = this;
+
     _graphics = new GraphicsDeviceManager(this);
 
     Content.RootDirectory = "Content";

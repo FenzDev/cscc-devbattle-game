@@ -1,5 +1,4 @@
 ﻿using System;
-using CSCCDevBattle;
 
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 {

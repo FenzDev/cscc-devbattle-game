@@ -1,4 +1,3 @@
-using CSCCDevBattle;
 using Microsoft.Xna.Framework;
 
 public abstract class Scene
