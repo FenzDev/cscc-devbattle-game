@@ -4,12 +4,12 @@ using Microsoft.Xna.Framework.Graphics;
 
 public class Game1 : Game
 {
-  private const int BASE_SCREEN_WIDTH = 800;
-  private const int BASE_SCREEN_HEIGHT = 800;
-  private const int DEBUG_SCREEN_WIDTH = 800;
-  private const int DEBUG_SCREEN_HEIGHT = 800;
+  public const int BASE_SCREEN_WIDTH = 600;
+  public const int BASE_SCREEN_HEIGHT = 600;
+  private const int DEBUG_SCREEN_WIDTH = 600;
+  private const int DEBUG_SCREEN_HEIGHT = 600;
 
-  public static Game1 Singleton {get; private set;}
+  public static Game1 Singleton { get; private set; }
 
   private readonly GraphicsDeviceManager _graphics;
   public SpriteBatch SpriteBatch { get; private set; } = null!;
@@ -29,9 +29,9 @@ public class Game1 : Game
 
   public Game1()
   {
+    _graphics = new(this);
     Singleton = this;
 
-    _graphics = new GraphicsDeviceManager(this);
 
     Content.RootDirectory = "Content";
     IsMouseVisible = true;
@@ -76,7 +76,7 @@ public class Game1 : Game
 
     FontTitle = _SansFontSystem.GetFont(48);
     FontText = _SansFontSystem.GetFont(28);
-    FontDebug = _MonoFontSystem.GetFont(24);
+    FontDebug = _MonoFontSystem.GetFont(16);
 
     _ScreenRenderTarget = new RenderTarget2D(GraphicsDevice, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT);
 
@@ -129,30 +129,64 @@ public class Game1 : Game
 
   protected override void Draw(GameTime gameTime)
   {
+    // Render the game at its internal resolution.
     GraphicsDevice.SetRenderTarget(_ScreenRenderTarget);
+    GraphicsDevice.Clear(Color.Black);
 
-    GraphicsDevice.Clear(Color.Gray);
-    CurrentScene.Draw(gameTime, this);
+    CurrentScene?.Draw(gameTime, this);
 
-    GraphicsDevice.SetRenderTargets(null);
+    // Switch back to the actual fullscreen backbuffer.
+    GraphicsDevice.SetRenderTarget(null);
+
+    GraphicsDevice.Clear(Color.Black);
+
+    Viewport viewport = GraphicsDevice.Viewport;
+
+    // Preserve the square aspect ratio.
+    float scale = System.MathF.Min(
+        viewport.Width / (float)BASE_SCREEN_WIDTH,
+        viewport.Height / (float)BASE_SCREEN_HEIGHT
+    );
+
+    int width = (int)(BASE_SCREEN_WIDTH * scale);
+    int height = (int)(BASE_SCREEN_HEIGHT * scale);
+
+    // Center the game image.
+    Rectangle destination = new Rectangle(
+        (viewport.Width - width) / 2,
+        (viewport.Height - height) / 2,
+        width,
+        height
+    );
 
     SpriteBatch.Begin(
-      samplerState: SamplerState.PointClamp,
-      effect: PostEffect
+        samplerState: SamplerState.PointClamp,
+        effect: PostEffect
     );
+
     SpriteBatch.Draw(
-      _ScreenRenderTarget,
-      new Rectangle(Point.Zero, new(
-        _graphics.PreferredBackBufferWidth,
-        _graphics.PreferredBackBufferHeight
-      )),
-      Color.White
+        _ScreenRenderTarget,
+        destination,
+        Color.White
     );
+
+    SpriteBatch.End();
+
+    // Debug UI is drawn directly on the actual screen.
     if (DebugEnabled)
     {
-      CurrentScene?.Debug.Draw(SpriteBatch, FontDebug, Pixel);
+      SpriteBatch.Begin(
+          samplerState: SamplerState.PointClamp
+      );
+
+      CurrentScene?.Debug.Draw(
+          SpriteBatch,
+          FontDebug,
+          Pixel
+      );
+
+      SpriteBatch.End();
     }
-    SpriteBatch.End();
   }
 
   public void GoToScene(Scene scene)

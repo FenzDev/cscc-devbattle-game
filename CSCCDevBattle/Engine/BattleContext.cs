@@ -27,8 +27,8 @@ public sealed class BattleContext
 
         Arena = new BattleArena(
             this,
-            new Vector2(400f, 400f),
-            new Vector2(320f, 240f),
+            new Vector2(Game1.BASE_SCREEN_WIDTH/2f, Game1.BASE_SCREEN_WIDTH/2f),
+            new Vector2(240f, 240f),
             4f);
 
         Player.Position =
