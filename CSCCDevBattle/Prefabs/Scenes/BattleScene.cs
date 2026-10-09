@@ -66,6 +66,24 @@ public class BattleScene : Scene
     private float _transitionStartPlayerAlpha;
     private float _transitionTargetPlayerAlpha;
 
+    // HP Animation
+    private float _hpFillRatio = 1f;
+    private float _hpTrailRatio = 1f;
+
+    private float _lastObservedPlayerHealth = float.NaN;
+
+    private float _hpTrailDelay;
+    private float _hpFlashRemaining;
+    private float _hpShakeRemaining;
+
+    private float _playerHitFlashRemaining;
+
+    private const float HpTrailDelay = 0.45f;
+    private const float HpTrailSpeed = 2.5f;
+    private const float HpFlashDuration = 0.22f;
+    private const float HpShakeDuration = 0.18f;
+    private const float PlayerHitFlashDuration = 0.20f;
+
     // ============================================================
     // Battle state
     // ============================================================
@@ -271,6 +289,33 @@ public class BattleScene : Scene
                 ? "No encounter"
                 : $"{_encounterDefinition.Name} | {_flowState}",
             KeyTrigger.Released);
+
+        Debug.RegisterCmd(
+            Keys.F6,
+            "Invincible Mode",
+            () =>
+            {
+                BattleContext.InvincibleMode =
+                    !BattleContext.InvincibleMode;
+
+                if (BattleContext.InvincibleMode)
+                {
+                    BattleContext.PlayerHealth = BattleContext.PlayerMaxHealth;
+                }
+            },
+            () => BattleContext.InvincibleMode
+                ? "Enabled"
+                : "Disabled",
+            KeyTrigger.Released);
+
+        Debug.RegisterInfo(
+    "HP Bar Debug",
+    () =>
+        $"HP={BattleContext.PlayerHealth:0.#}/" +
+        $"{BattleContext.PlayerMaxHealth:0.#} | " +
+        $"Fill={_hpFillRatio:0.00} | " +
+        $"Trail={_hpTrailRatio:0.00} | " +
+        $"Last={_lastObservedPlayerHealth:0.#}");
     }
 
     private EncounterDefinition CreateDemoEncounter()
@@ -294,10 +339,10 @@ public class BattleScene : Scene
                 2.5f));
 
         webPhase.BattleWavePool.Add(
-            () => new TestWave { Duration = 4f });
+            () => new TestWave());
 
         webPhase.BattleWavePool.Add(
-            () => new TestWave { Duration = 6f });
+            () => new TestWave());
 
         webPhase.BetweenWaveDialogPool.Add(
             () => new DialogWave(
@@ -319,7 +364,7 @@ public class BattleScene : Scene
                 "SYSTEM",
                 "A new process is starting.",
                 2f,
-                shakeAmount:1.5f));
+                shakeAmount: 1.5f));
 
         aiPhase.BattleWavePool.Add(
             () => new TestWave { Duration = 3f });
@@ -401,6 +446,8 @@ public class BattleScene : Scene
         // --------------------------------------------------------
 
         UpdateBattle(deltaTime);
+
+        UpdateHudAnimations(deltaTime);
     }
 
 
@@ -814,6 +861,7 @@ public class BattleScene : Scene
         {
             ResolvePlayerSolidCollisions();
             CheckPlayerObstacleCollisions();
+            UpdateDamageCooldown(deltaTime);
         }
 
         RemoveDestroyedEntities();
@@ -1017,17 +1065,77 @@ public class BattleScene : Scene
     {
         Entity other = hit.B;
 
-        // Example:
-        //
-        // if (other is ProjectileEntity projectile)
-        // {
-        //     BattleContext.Player.TakeDamage(
-        //         projectile.Damage);
-        //
-        //     projectile.DestroyRequested = true;
-        // }
+        if (other.ContactDamage > 0f)
+        {
+            TryDamagePlayer(other.ContactDamage);
+        }
+
+        if (other.DestroyOnPlayerContact)
+        {
+            other.DestroyRequested = true;
+        }
     }
 
+    public bool TryDamagePlayer(float amount)
+    {
+        if (!float.IsFinite(amount) || amount <= 0f)
+            return false;
+
+        if (BattleContext.InvincibleMode ||
+            BattleContext.IsPlayerDead ||
+            BattleContext.DamageCooldownRemaining > 0f)
+        {
+            return false;
+        }
+
+        float maxHealth = MathF.Max(0f, BattleContext.PlayerMaxHealth);
+        float previousHealth = Math.Clamp(
+            BattleContext.PlayerHealth, 0f, maxHealth);
+
+        if (previousHealth <= 0f)
+            return false;
+
+        BattleContext.PlayerHealth = Math.Clamp(
+            previousHealth - amount,
+            0f,
+            maxHealth);
+
+        BattleContext.LastDamageAmount = previousHealth - BattleContext.PlayerHealth;
+
+        if (BattleContext.LastDamageAmount <= 0f)
+            return false;
+
+        BattleContext.DamageEventCount++;
+
+        BattleContext.DamageCooldownRemaining = MathF.Max(
+            0f, BattleContext.DamageCooldownDuration);
+
+        return true;
+    }
+
+    public float HealPlayer(float amount)
+    {
+        if (!float.IsFinite(amount) || amount <= 0f)
+            return 0f;
+
+        float maxHealth = MathF.Max(0f, BattleContext.PlayerMaxHealth);
+        float previousHealth = Math.Clamp(
+            BattleContext.PlayerHealth, 0f, maxHealth);
+
+        BattleContext.PlayerHealth = Math.Clamp(
+            previousHealth + amount,
+            0f,
+            maxHealth);
+
+        return BattleContext.PlayerHealth - previousHealth;
+    }
+
+    public void UpdateDamageCooldown(float deltaTime)
+    {
+        BattleContext.DamageCooldownRemaining = MathF.Max(
+            0f,
+            BattleContext.DamageCooldownRemaining - MathF.Max(0f, deltaTime));
+    }
 
     // ============================================================
     // Entity removal
@@ -1049,11 +1157,142 @@ public class BattleScene : Scene
         }
     }
 
+    private void UpdateHudAnimations(float deltaTime)
+    {
+        deltaTime = MathF.Max(0f, deltaTime);
+
+        float maxHealth = MathF.Max(
+            0f, BattleContext.PlayerMaxHealth);
+
+        float health = Math.Clamp(
+            BattleContext.PlayerHealth,
+            0f,
+            maxHealth);
+
+        float targetRatio = maxHealth > 0f
+            ? health / maxHealth
+            : 0f;
+
+        // Initialize without playing a damage animation.
+        if (float.IsNaN(_lastObservedPlayerHealth))
+        {
+            _lastObservedPlayerHealth = health;
+            _hpFillRatio = targetRatio;
+            _hpTrailRatio = targetRatio;
+            return;
+        }
+
+        // Count down existing effects.
+        _hpFlashRemaining = MathF.Max(
+            0f, _hpFlashRemaining - deltaTime);
+
+        _hpShakeRemaining = MathF.Max(
+            0f, _hpShakeRemaining - deltaTime);
+
+        _playerHitFlashRemaining = MathF.Max(
+            0f, _playerHitFlashRemaining - deltaTime);
+
+        bool tookDamage =
+            health < _lastObservedPlayerHealth;
+
+        bool wasHealed =
+            health > _lastObservedPlayerHealth;
+
+        if (tookDamage)
+        {
+            float oldRatio = maxHealth > 0f
+                ? Math.Clamp(
+                    _lastObservedPlayerHealth / maxHealth,
+                    0f,
+                    1f)
+                : 0f;
+
+            // Preserve the old health as the start of the trail.
+            _hpTrailRatio = MathF.Max(
+                _hpTrailRatio, oldRatio);
+
+            _hpTrailDelay = HpTrailDelay;
+            _hpFlashRemaining = HpFlashDuration;
+            _hpShakeRemaining = HpShakeDuration;
+            _playerHitFlashRemaining = PlayerHitFlashDuration;
+        }
+        else if (wasHealed)
+        {
+            // Healing should not look like pending damage.
+            _hpTrailRatio = _hpFillRatio;
+            _hpTrailDelay = 0f;
+        }
+
+        _lastObservedPlayerHealth = health;
+
+        // Main health bar: relatively quick response.
+        _hpFillRatio = MathHelper.Lerp(
+            _hpFillRatio,
+            targetRatio,
+            Math.Clamp(deltaTime * 18f, 0f, 1f));
+
+        // Delayed trail: wait, then slowly catch up.
+        if (!tookDamage)
+        {
+            if (_hpTrailDelay > 0f)
+            {
+                _hpTrailDelay = MathF.Max(
+                    0f, _hpTrailDelay - deltaTime);
+            }
+            else
+            {
+                _hpTrailRatio = MathHelper.Lerp(
+                    _hpTrailRatio,
+                    targetRatio,
+                    Math.Clamp(
+                        deltaTime * HpTrailSpeed,
+                        0f,
+                        1f));
+            }
+        }
+
+        // The trail should never be shorter than the main fill.
+        _hpTrailRatio = MathF.Max(
+            _hpTrailRatio,
+            _hpFillRatio);
+    }
+
 
     // ============================================================
     // Drawing
     // ============================================================
 
+    private Color GetEntityDrawTint(Entity entity)
+    {
+        Color tint = entity.Tint;
+
+        bool isPlayerVisual =
+            ReferenceEquals(entity, BattleContext.Player) ||
+            entity.FadeWithPlayer;
+
+        if (!isPlayerVisual)
+            return tint;
+
+        PlayerEntity player = BattleContext.Player;
+
+        // Flash towards white when hit.
+        tint = Color.Lerp(
+            tint,
+            Color.White,
+            Math.Clamp(player.HitFlashAmount, 0f, 1f));
+
+        // Preserve the existing arena transition fade,
+        // and multiply it by the invulnerability flicker.
+        float alpha =
+            _playerVisualAlpha * player.DamageBlinkOpacity;
+
+        tint.A = (byte)Math.Clamp(
+            (int)MathF.Round(tint.A * alpha),
+            0,
+            255);
+
+        return tint;
+    }
     private void DrawPlayerHud(Game1 game)
     {
         float screenSize = Game1.BASE_SCREEN_WIDTH;
@@ -1063,37 +1302,164 @@ public class BattleScene : Scene
 
         float hudTop = screenSize - HudHeight;
 
-        // Thin line separating the play area from the HUD.
+        // Separator above the HUD.
         spriteBatch.Draw(
             game.Pixel,
-            new Rectangle(20, (int)hudTop, (int)screenSize - 40, 2),
+            new Rectangle(
+                20,
+                (int)hudTop,
+                (int)screenSize - 40,
+                2),
             Color.White);
 
         float textY = hudTop + 20f;
 
-        // Bottom-left: player name.
+        // Player name, bottom left.
         font.DrawText(
             spriteBatch,
             BattleContext.PlayerName,
             new Vector2(24f, textY),
             Color.White);
 
-        // Bottom-right: HP.
-        float health = MathHelper.Clamp(
+        float maxHealth = MathF.Max(
+            0f, BattleContext.PlayerMaxHealth);
+
+        float health = Math.Clamp(
             BattleContext.PlayerHealth,
             0f,
-            BattleContext.PlayerMaxHealth);
+            maxHealth);
 
         string hpText =
-            $"HP {health:0}/{BattleContext.PlayerMaxHealth:0}";
+            $"HP {health:0.#}/{maxHealth:0.#}";
 
-        Vector2 hpSize = font.MeasureString(hpText);
+        Vector2 hpTextSize = font.MeasureString(hpText);
+
+        float hpTextX =
+            screenSize - hpTextSize.X - 24f;
+
+        float barWidth = 112f;
+        float barHeight = 24f;
+        float gap = 12f;
+
+        float barX = hpTextX - gap - barWidth;
+        float barY = 2f + textY + (hpTextSize.Y - barHeight) / 2f;
+
+        // Shake the bar horizontally and vertically on damage.
+        float shakeStrength = _hpShakeRemaining > 0f
+            ? _hpShakeRemaining / HpShakeDuration
+            : 0f;
+
+        Vector2 shake = new(
+            (Random.Shared.NextSingle() * 2f - 1f)
+                * 3f * shakeStrength,
+            (Random.Shared.NextSingle() * 2f - 1f)
+                * 2f * shakeStrength);
+
+        Rectangle outer = new(
+            (int)(barX + shake.X),
+            (int)(barY + shake.Y),
+            (int)barWidth,
+            (int)barHeight);
+
+        float flash = Math.Clamp(
+            _hpFlashRemaining / HpFlashDuration,
+            0f,
+            1f);
+
+        Color backgroundColor = Color.Lerp(
+            new Color(45, 25, 25),
+            new Color(130, 35, 35),
+            flash * 0.5f);
+
+        spriteBatch.Draw(
+            game.Pixel,
+            outer,
+            backgroundColor);
+
+        Rectangle inner = new(
+            outer.X + 2,
+            outer.Y + 2,
+            outer.Width - 4,
+            outer.Height - 4);
+
+        // Empty bar background.
+        spriteBatch.Draw(
+            game.Pixel,
+            inner,
+            new Color(25, 25, 25));
+
+        int fillWidth = Math.Clamp(
+            (int)MathF.Round(inner.Width * _hpFillRatio),
+            0,
+            inner.Width);
+
+        int trailEnd = Math.Clamp(
+            (int)MathF.Round(inner.Width * _hpTrailRatio),
+            0,
+            inner.Width);
+
+        // Main HP color depends on current health.
+        Color fillColor = _hpFillRatio > 0.5f
+            ? new Color(50, 60, 220)
+            : new Color(255, 65, 65);
+
+        // Flash towards white immediately after damage.
+        fillColor = Color.Lerp(
+            fillColor,
+            Color.White,
+            flash * 0.8f);
+
+        if (fillWidth > 0)
+        {
+            spriteBatch.Draw(
+                game.Pixel,
+                new Rectangle(
+                    inner.X,
+                    inner.Y,
+                    fillWidth,
+                    inner.Height),
+                fillColor);
+        }
+
+        // The light blue segment shows the health just lost.
+        int trailWidth = Math.Max(
+            0, trailEnd - fillWidth);
+
+        if (trailWidth > 0)
+        {
+            Color trailColor = Color.Lerp(
+                new Color(180, 200, 230),
+                Color.White,
+                flash * 0.65f);
+
+            spriteBatch.Draw(
+                game.Pixel,
+                new Rectangle(
+                    inner.X + fillWidth,
+                    inner.Y,
+                    trailWidth,
+                    inner.Height),
+                trailColor);
+        }
+
+        DrawUiOutline(
+            spriteBatch,
+            game.Pixel,
+            outer,
+            2,
+            Color.Lerp(Color.White, Color.Red, flash));
+
+        // HP number changes color briefly on a hit.
+        Color hpColor = Color.Lerp(
+            Color.White,
+            new Color(255, 100, 100),
+            flash);
 
         font.DrawText(
             spriteBatch,
             hpText,
-            new Vector2(screenSize - hpSize.X - 24f, textY),
-            Color.White);
+            new Vector2(hpTextX, textY),
+            hpColor);
     }
 
     private void DrawDialoguePanel(Game1 game)
@@ -1356,7 +1722,7 @@ public class BattleScene : Scene
                entity.Texture != null;
     }
 
-    private static void DrawEntity(
+    private void DrawEntity(
         Game1 game,
         Entity entity)
     {
@@ -1364,7 +1730,7 @@ public class BattleScene : Scene
             entity.Texture!,
             entity.WorldPosition,
             null,
-            entity.Tint,
+            GetEntityDrawTint(entity),
             entity.WorldRotation,
             entity.Origin,
             entity.WorldScale,
@@ -1542,4 +1908,5 @@ public class BattleScene : Scene
 
         game.SpriteBatch.End();
     }
+
 }

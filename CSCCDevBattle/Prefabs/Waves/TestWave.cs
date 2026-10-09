@@ -32,7 +32,7 @@ public sealed class TestWave : BattleWave
                 1.0f);
 
         Spawn(battle,
-            new SolidBlockEntity(battle.Arena.Center, new Vector2(20f)),
+            new SolidBlockEntity(battle.Arena.InnerMinimum+new Vector2(20f), new Vector2(20f)),
             [
 
             ]);
@@ -46,19 +46,20 @@ public sealed class TestWave : BattleWave
         while (_spawnRoutine.HasElapsed())
         {
             Spawn(
-                battle,
-                new ProjectileEntity
-                {
-                    Position =
-                        new Vector2(
-                            battle.Player.Position.X,
-                            battle.Player.Position.Y - 200f)
-                },
-                Spiral,
-                Spin);
+              battle,
+              new ProjectileEntity
+              {
+                  ContactDamage = 1.0f,
+                  DestroyOnPlayerContact = true,
+                  Position =
+                      new Vector2(
+                          battle.Player.Position.X,
+                          battle.Player.Position.Y - 200f)
+              },
+              Spiral,
+              Spin);
         }
     }
-
 
     protected override void OnEnd(
         BattleContext battle)

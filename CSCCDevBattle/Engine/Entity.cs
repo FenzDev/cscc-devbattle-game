@@ -250,23 +250,23 @@ public abstract class Entity : ICollisionActor
 
     public CollisionMode CollisionMode { get; set; }
         = CollisionMode.None;
-        
+
     public Rectangle? MovementBounds { get; set; }
 
     public Rectangle GetMovementBounds()
-{
-    if (MovementBounds.HasValue)
-        return MovementBounds.Value;
+    {
+        if (MovementBounds.HasValue)
+            return MovementBounds.Value;
 
-    if (Texture == null)
-        return Rectangle.Empty;
+        if (Texture == null)
+            return Rectangle.Empty;
 
-    return new Rectangle(
-        0,
-        0,
-        Texture.Width,
-        Texture.Height);
-}
+        return new Rectangle(
+            0,
+            0,
+            Texture.Width,
+            Texture.Height);
+    }
 
     // -----------------------------
     // Rotated box
@@ -298,7 +298,7 @@ public abstract class Entity : ICollisionActor
     /// </summary>
     public byte PixelAlphaThreshold { get; set; } = 1;
 
-
+    public bool FadeWithPlayer { get; set; }
 
     // ============================================================
     // ICollisionActor
@@ -313,4 +313,11 @@ public abstract class Entity : ICollisionActor
     /// Pixel     -> transformed AABB used only for broadphase
     /// </summary>
     public CollisionShape2D Shape { get; internal set; } = default;
+
+    // ============================================================
+    //  Damage Source
+    // ============================================================
+    public float ContactDamage { get; set; }
+
+    public bool DestroyOnPlayerContact { get; set; }
 }

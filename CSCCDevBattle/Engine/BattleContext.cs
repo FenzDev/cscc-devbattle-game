@@ -25,6 +25,19 @@ public sealed class BattleContext
 
     public TimersManager Timers { get; }
 
+    public bool InvincibleMode { get; set; }
+
+    public float DamageCooldownDuration { get; set; } = 0.75f;
+
+    public float DamageCooldownRemaining { get; set; }
+
+    public int DamageEventCount { get; set; }
+
+    public float LastDamageAmount { get; set; }
+
+    public bool IsPlayerDead => PlayerHealth <= 0f;
+
+    
     public BattleContext(TimersManager timers)
     {
         Timers = timers;
@@ -60,4 +73,5 @@ public sealed class BattleContext
 
         _entities.Remove(entity);
     }
+    
 }

@@ -2,6 +2,10 @@ using Microsoft.Xna.Framework;
 
 public sealed class PlayerEntity : Entity
 {
+    public float HitFlashAmount { get; set; }
+
+    public float DamageBlinkOpacity { get; set; } = 1f;
+
     public PlayerEntity()
     {
         Texture =
@@ -16,7 +20,7 @@ public sealed class PlayerEntity : Entity
         // Movement bounds
         // --------------------------------------------------------
         // null = entire texture.
-        MovementBounds = new (1,0,6,8);
+        MovementBounds = new(1, 0, 6, 8);
 
         // --------------------------------------------------------
         // Collision
@@ -52,9 +56,13 @@ public sealed class PlayerEntity : Entity
 
         Behaviours.Add(
             PlayerBehaviourInstance);
+
+        Behaviours.Add(new PlayerHitFlashBehaviour());
     }
 
     private static readonly Behaviour
         PlayerBehaviourInstance =
             new PlayerBehaviour(240f);
+
+            
 }
