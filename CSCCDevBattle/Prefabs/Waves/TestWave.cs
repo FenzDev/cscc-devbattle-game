@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.Xna.Framework;
 
 public sealed class TestWave : BattleWave
@@ -6,15 +7,18 @@ public sealed class TestWave : BattleWave
         new MoveBehaviour(
             new Vector2(
                 0f,
-                200f));
+                600f));
 
     private static readonly Behaviour Spin =
-        new RotateBehaviour(2f);
+        new RotateBehaviour(32f);
+
+    private static readonly Behaviour Spiral =
+        new SpiralBehaviour(200f, 0.4f);
 
     private TimersManager.Timer _spawnRoutine = null!;
 
     public override float Duration =>
-        6f;
+        20f;
 
 
     protected override void OnStart(
@@ -25,18 +29,11 @@ public sealed class TestWave : BattleWave
                 this,
                 1.0f);
 
+        Spawn(battle,
+            new SolidBlockEntity(battle.Arena.Center, new Vector2(20f)),
+            [
 
-        Spawn(
-            battle,
-            new ProjectileEntity
-            {
-                Position =
-                    new Vector2(
-                        battle.Arena.Center.X,
-                        battle.Arena.Minimum.Y)
-            },
-            MoveDown,
-            Spin);
+            ]);
     }
 
 
@@ -53,9 +50,9 @@ public sealed class TestWave : BattleWave
                     Position =
                         new Vector2(
                             battle.Player.Position.X,
-                            battle.Arena.Minimum.Y)
+                            battle.Player.Position.Y - 200f)
                 },
-                MoveDown,
+                Spiral,
                 Spin);
         }
     }
