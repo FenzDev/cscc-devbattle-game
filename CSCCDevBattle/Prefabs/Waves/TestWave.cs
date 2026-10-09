@@ -3,6 +3,11 @@ using Microsoft.Xna.Framework;
 
 public sealed class TestWave : BattleWave
 {
+  public TestWave()
+  {
+    Duration = 12.0f;
+  }
+
     private static readonly Behaviour MoveDown =
         new MoveBehaviour(
             new Vector2(
@@ -16,9 +21,6 @@ public sealed class TestWave : BattleWave
         new SpiralBehaviour(200f, 0.4f);
 
     private TimersManager.Timer _spawnRoutine = null!;
-
-    public override float Duration =>
-        20f;
 
 
     protected override void OnStart(

@@ -11,7 +11,13 @@ public sealed class BattleContext
 
     public PlayerEntity Player { get; }
 
-    public float PlayerHealth { get; set; }
+    public string PlayerName { get; set; } = "PLAYER";
+
+    public float PlayerMaxHealth { get; set; } = 20f;
+
+    public float PlayerHealth { get; set; } = 20f;
+
+    public bool PlayerMovementEnabled { get; set; }
 
     public BattleArena Arena { get; }
 
@@ -27,7 +33,7 @@ public sealed class BattleContext
 
         Arena = new BattleArena(
             this,
-            new Vector2(Game1.BASE_SCREEN_WIDTH/2f, Game1.BASE_SCREEN_WIDTH/2f),
+            new Vector2(Game1.BASE_SCREEN_WIDTH / 2f, Game1.BASE_SCREEN_WIDTH / 2f),
             new Vector2(240f, 240f),
             4f);
 

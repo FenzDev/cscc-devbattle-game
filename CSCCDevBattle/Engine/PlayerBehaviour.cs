@@ -16,6 +16,14 @@ public sealed class PlayerBehaviour : Behaviour
       BattleContext battle,
       float deltaTime)
   {
+    
+    if (!battle.PlayerMovementEnabled)
+    {
+      entity.Visible = false;  
+      return;
+    }
+    entity.Visible = true;  
+
     Vector2 movement = Vector2.Zero;
 
     // --------------------------------------------------------
