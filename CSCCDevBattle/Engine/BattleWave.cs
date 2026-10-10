@@ -22,6 +22,12 @@ public abstract class BattleWave
     // Null means use the screen center.
     public virtual Vector2? ArenaCenter => null;
 
+    public BossPose BossPose { get; set; }
+        = BossPose.Pockets;
+
+    public List<string> BossLines { get; } = [];
+
+
     public void Start(BattleContext battle)
     {
         ArgumentNullException.ThrowIfNull(battle);

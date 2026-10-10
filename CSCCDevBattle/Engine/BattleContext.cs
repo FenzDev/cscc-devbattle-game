@@ -37,6 +37,8 @@ public sealed class BattleContext
 
     public bool IsPlayerDead => PlayerHealth <= 0f;
 
+    public BossCharacter? Boss { get; set; }
+
     
     public BattleContext(TimersManager timers)
     {
