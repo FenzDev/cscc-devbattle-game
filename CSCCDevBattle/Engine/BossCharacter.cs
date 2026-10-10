@@ -32,12 +32,12 @@ public sealed class BossCharacter
         Head = CreatePart("Battle/BossHead");
 
         // The torso is now the root of the character.
-        Torso.Scale = new Vector2(4f);
+        Torso.Scale = new Vector2(3f);
 
         // Legs render behind the torso.
         Legs.AttachTo(
             Torso,
-            new Vector2(0f, -2f), // Move legs up by 2 local units
+            new Vector2(0f, 20f), // Move legs up by 2 local units
             visualOrder: AttachmentVisualOrder.Back);
 
         // Head renders in front of the torso.
@@ -145,6 +145,6 @@ public sealed class BossCharacter
                     * IdleBobAmplitude;
 
         // Whole-pixel movement suits pixel-art sprites.
-        Head.Position = new Vector2(0f, -20f) + new Vector2(0f, MathF.Round(bob));
+        Head.Position = new Vector2(-2f, -10f) + new Vector2(0f, MathF.Round(bob));
     }
 }

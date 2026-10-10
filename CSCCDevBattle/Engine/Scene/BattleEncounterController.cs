@@ -367,7 +367,7 @@ public sealed class BattleEncounterController
         // Your current game uses a square 800 × 800 screen.
         boss.Position = new Vector2(
             Game1.BASE_SCREEN_WIDTH / 2f,
-            Game1.BASE_SCREEN_WIDTH / 2f);
+            Game1.BASE_SCREEN_WIDTH / 2f - 40f);
 
         boss.SetVisible(true);
     }

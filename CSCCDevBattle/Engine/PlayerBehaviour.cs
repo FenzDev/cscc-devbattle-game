@@ -6,7 +6,7 @@ public sealed class PlayerBehaviour : Behaviour
   private readonly float _speed;
 
   public PlayerBehaviour(
-      float speed = 240f)
+      float speed = 220f)
   {
     _speed = speed;
   }

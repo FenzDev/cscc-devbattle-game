@@ -230,16 +230,16 @@ public sealed class BattleHud
         spriteBatch.Draw(game.Pixel, box, Color.Black);
         DrawUiOutline(spriteBatch, game.Pixel, box, 2, Color.White);
 
-        game.FontText.DrawText(
-            spriteBatch,
-            dialog.Speaker,
-            new Vector2(box.X + 14f, box.Y + 8f),
-            Color.Yellow);
+        // game.FontText.DrawText(
+        //     spriteBatch,
+        //     dialog.Speaker,
+        //     new Vector2(box.X + 14f, box.Y + 8f),
+        //     Color.Yellow);
 
         DrawDialogText(
             game,
             dialog,
-            new Vector2(box.X + 14f, box.Y + 38f));
+            new Vector2(box.X + 14f, box.Y + 12f));
     }
 
     private static void DrawDialogText(

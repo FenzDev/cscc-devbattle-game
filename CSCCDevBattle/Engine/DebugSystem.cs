@@ -138,7 +138,7 @@ public sealed class DebugSystem
 
         const int padding = 12;
         const int headerHeight = 46;
-        const int lineHeight = 32;
+        const int lineHeight = 24;
 
         int height =
             headerHeight +
