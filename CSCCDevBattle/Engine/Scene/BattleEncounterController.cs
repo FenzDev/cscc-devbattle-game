@@ -80,12 +80,7 @@ public sealed class BattleEncounterController
     {
         _battle = battle ?? throw new ArgumentNullException(nameof(battle));
         _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
-        EnsureBoss(
-            new Vector2(
-                Game1.BASE_SCREEN_WIDTH / 2f,
-                120f
-            )
-        );
+        EnsureBoss(new Vector2(Game1.BASE_SCREEN_WIDTH / 2f, 120f));
     }
 
     public void BeginEncounter(EncounterDefinition definition)
@@ -103,8 +98,6 @@ public sealed class BattleEncounterController
         _steps = newSteps;
         _activeStep = null;
         State = BattleFlowState.Idle;
-
-
 
         _presentation.SetDialogueLayout();
         StartNextStep();
@@ -126,8 +119,6 @@ public sealed class BattleEncounterController
             PlayBetweenWaveDialogAfterFinalWave = false
         };
 
-        // This entry represents the instance passed by the caller. Replaying
-        // the generated definition restarts that instance via BattleWave.Start.
         phase.BattleWavePool.Add(() => wave);
         definition.Phases.Add(phase);
 
@@ -147,9 +138,7 @@ public sealed class BattleEncounterController
 
     public void Update(float deltaTime)
     {
-
-        _battle.Boss?.Update(
-        deltaTime);
+        _battle.Boss?.Update(deltaTime);
 
         switch (State)
         {
@@ -224,11 +213,7 @@ public sealed class BattleEncounterController
             {
                 Func<DialogWave> factory = openingDialogFactory;
                 result.Enqueue(new EncounterStep(
-                    () => factory(),
-                    phaseIndex,
-                    phase.Name,
-                    0,
-                    phase.BattleWaveCount));
+                    () => factory(), phaseIndex, phase.Name, 0, phase.BattleWaveCount));
             }
 
             if (phase.BattleWaveCount > 0 && phase.BattleWavePool.Count == 0)
@@ -237,25 +222,16 @@ public sealed class BattleEncounterController
                     $"Phase '{phase.Name}' has waves to play but its BattleWavePool is empty.");
             }
 
-            int previousAttackIndex = -1;
+            List<int> attackOrder = BuildAttackOrder(phase);
             int previousDialogIndex = -1;
 
             for (int waveNumber = 1;
                  waveNumber <= phase.BattleWaveCount;
                  waveNumber++)
             {
-                int attackIndex = PickDifferentIndex(
-                    phase.BattleWavePool.Count,
-                    previousAttackIndex);
-                previousAttackIndex = attackIndex;
-
-                Func<BattleWave> attackFactory = phase.BattleWavePool[attackIndex];
+                Func<BattleWave> attackFactory = phase.BattleWavePool[attackOrder[waveNumber - 1]];
                 result.Enqueue(new EncounterStep(
-                    attackFactory,
-                    phaseIndex,
-                    phase.Name,
-                    waveNumber,
-                    phase.BattleWaveCount));
+                    attackFactory, phaseIndex, phase.Name, waveNumber, phase.BattleWaveCount));
 
                 bool addDialogue =
                     phase.BetweenWaveDialogPool.Count > 0 &&
@@ -266,23 +242,56 @@ public sealed class BattleEncounterController
                     continue;
 
                 int dialogIndex = PickDifferentIndex(
-                    phase.BetweenWaveDialogPool.Count,
-                    previousDialogIndex);
+                    phase.BetweenWaveDialogPool.Count, previousDialogIndex);
                 previousDialogIndex = dialogIndex;
 
-                Func<DialogWave> dialogFactory =
-                    phase.BetweenWaveDialogPool[dialogIndex];
-
+                Func<DialogWave> dialogFactory = phase.BetweenWaveDialogPool[dialogIndex];
                 result.Enqueue(new EncounterStep(
-                    dialogFactory,
-                    phaseIndex,
-                    phase.Name,
-                    waveNumber,
-                    phase.BattleWaveCount));
+                    dialogFactory, phaseIndex, phase.Name, waveNumber, phase.BattleWaveCount));
             }
         }
 
         return result;
+    }
+
+    private List<int> BuildAttackOrder(EncounterPhase phase)
+    {
+        int poolCount = phase.BattleWavePool.Count;
+        int waveCount = phase.BattleWaveCount;
+
+        if (phase.ShuffleBattleWavesWithoutReplacement)
+        {
+            if (waveCount != poolCount)
+            {
+                throw new InvalidOperationException(
+                    $"Phase '{phase.Name}' enables shuffle-without-replacement, so " +
+                    $"BattleWaveCount ({waveCount}) must equal its pool size ({poolCount}).");
+            }
+
+            List<int> shuffled = new(poolCount);
+            for (int i = 0; i < poolCount; i++)
+                shuffled.Add(i);
+
+            // Fisher-Yates: every factory appears exactly once, in a fresh order.
+            for (int i = shuffled.Count - 1; i > 0; i--)
+            {
+                int j = _random.Next(i + 1);
+                (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);
+            }
+
+            return shuffled;
+        }
+
+        List<int> order = new(waveCount);
+        int previousIndex = -1;
+        for (int i = 0; i < waveCount; i++)
+        {
+            int selected = PickDifferentIndex(poolCount, previousIndex);
+            order.Add(selected);
+            previousIndex = selected;
+        }
+
+        return order;
     }
 
     private int PickDifferentIndex(int count, int previousIndex)
@@ -291,7 +300,6 @@ public sealed class BattleEncounterController
             throw new InvalidOperationException("Cannot select from an empty factory pool.");
 
         int selected = _random.Next(count);
-
         if (count > 1 && selected == previousIndex)
             selected = (selected + 1 + _random.Next(count - 1)) % count;
 
@@ -305,41 +313,32 @@ public sealed class BattleEncounterController
             _activeStep = null;
             _pendingWave = null;
             _battle.CurrentWave = null;
-
             HideBoss();
-
             State = BattleFlowState.Complete;
             return;
         }
 
         _activeStep = _steps.Dequeue();
-
         BattleWave wave = _activeStep.Factory()
-            ?? throw new InvalidOperationException(
-                "An encounter wave factory returned null.");
+            ?? throw new InvalidOperationException("An encounter wave factory returned null.");
 
         if (wave is DialogWave)
         {
             ShowBossForDialogue();
-
             StartActiveWave(wave);
             State = BattleFlowState.Dialogue;
             return;
         }
 
-        // The next step is an attack wave, so hide the boss
-        // before entering the arena.
         HideBoss();
-
         _pendingWave = wave;
-
         _presentation.BeginTransition(
             _presentation.GetWaveArenaCenter(wave),
             wave.ArenaSize,
             BattleArenaPresentation.ActivePlayerOpacity);
-
         State = BattleFlowState.ArenaEntering;
     }
+
     private void StartActiveWave(BattleWave wave)
     {
         _pendingWave = null;
@@ -352,6 +351,7 @@ public sealed class BattleEncounterController
         BattleWave? wave = _battle.CurrentWave;
         if (wave is null)
             return;
+
         HideBoss();
         wave.End(_battle);
         _battle.CurrentWave = null;
@@ -360,15 +360,11 @@ public sealed class BattleEncounterController
     private void ShowBossForDialogue()
     {
         BossCharacter? boss = _battle.Boss;
-
         if (boss is null)
             return;
 
-        // Your current game uses a square 800 × 800 screen.
-        boss.Position = new Vector2(
-            Game1.BASE_SCREEN_WIDTH / 2f,
-            Game1.BASE_SCREEN_WIDTH / 2f - 40f);
-
+        float screenSize = Game1.BASE_SCREEN_WIDTH;
+        boss.Position = new Vector2(screenSize / 2f, screenSize / 2f - 40f);
         boss.SetVisible(true);
     }
 
@@ -384,7 +380,6 @@ public sealed class BattleEncounterController
 
         _battle.Boss = new BossCharacter();
         _battle.Boss.Spawn(_battle, position);
-
         return _battle.Boss;
     }
 }

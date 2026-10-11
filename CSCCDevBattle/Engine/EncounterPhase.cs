@@ -8,14 +8,17 @@ public sealed class EncounterPhase
     // Number of attacks selected from BattleWavePool.
     public int BattleWaveCount { get; set; } = 3;
 
-    // Whether to play an inter-wave dialogue after the
-    // final attack in this phase, too.
+    // When enabled, BattleWaveCount must equal the pool size and every
+    // factory is played exactly once in a freshly shuffled order.
+    public bool ShuffleBattleWavesWithoutReplacement { get; set; }
+
+    // Whether to play an inter-wave dialogue after the final attack too.
     public bool PlayBetweenWaveDialogAfterFinalWave { get; set; } = true;
 
     // All these dialogues run sequentially at phase entry.
     public List<Func<DialogWave>> OpeningDialogs { get; } = [];
 
-    // One attack factory is randomly selected for each wave.
+    // One attack factory is selected for each wave.
     public List<Func<BattleWave>> BattleWavePool { get; } = [];
 
     // One dialogue is randomly selected after each attack.

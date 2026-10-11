@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 /// <summary>Shared helpers for the department encounter's procedural attack waves.</summary>
 public abstract class DepartmentWaveBase : BattleWave
@@ -31,6 +32,7 @@ public abstract class DepartmentWaveBase : BattleWave
             new DepartmentProjectileBehaviour(velocity, lifetime, redirectAt, redirectRadians));
     }
 
+    /// <summary>Spawns a 1x1 Pixel stretched into procedural UI or geometry.</summary>
     protected DepartmentVisualEntity Visual(
         BattleContext battle,
         Vector2 position,
@@ -53,6 +55,69 @@ public abstract class DepartmentWaveBase : BattleWave
             DestroyOnPlayerContact = false
         };
         return Spawn(battle, entity);
+    }
+
+    /// <summary>
+    /// Spawns a sprite from the existing ContentBuilder texture tree.
+    /// Scale is the sprite multiplier, not a requested world size.
+    /// </summary>
+    protected DepartmentVisualEntity Sprite(
+        BattleContext battle,
+        Vector2 position,
+        string asset,
+        float scale = 2f,
+        Color? tint = null,
+        bool damaging = false,
+        float damage = 1f,
+        bool pixelPerfect = false,
+        bool destroyOnContact = false)
+    {
+        Texture2D texture = Assets.GetTexture(asset);
+        var entity = new DepartmentVisualEntity
+        {
+            Texture = texture,
+            Position = position,
+            Scale = new Vector2(scale),
+            Tint = tint ?? Color.White,
+            CollisionMode = damaging
+                ? (pixelPerfect ? CollisionMode.PixelPerfect : CollisionMode.RotatedBox)
+                : CollisionMode.None,
+            CollisionLayer = damaging ? "obstacles" : null,
+            CollisionSize = new Vector2(texture.Width, texture.Height),
+            ContactDamage = damaging ? damage : 0f,
+            DestroyOnPlayerContact = destroyOnContact
+        };
+        return Spawn(battle, entity);
+    }
+
+    protected DepartmentVisualEntity SpriteProjectile(
+        BattleContext battle,
+        Vector2 position,
+        string asset,
+        Vector2 velocity,
+        float scale = 2f,
+        Color? tint = null,
+        float lifetime = 4.5f,
+        bool damaging = true,
+        float redirectAt = -1f,
+        float redirectRadians = 0f,
+        bool pixelPerfect = false,
+        bool destroyOnContact = true)
+    {
+        DepartmentVisualEntity entity = Sprite(
+            battle, position, asset, scale, tint, damaging,
+            pixelPerfect: pixelPerfect, destroyOnContact: destroyOnContact);
+
+        // Most pixel-art projectile sprites have oversized transparent margins.
+        // Slightly inset the box where texture alpha testing is not requested.
+        if (damaging && !pixelPerfect)
+        {
+            entity.CollisionSize *= 0.72f;
+        }
+
+        entity.Behaviours.Add(new DepartmentProjectileBehaviour(
+            velocity, lifetime, redirectAt, redirectRadians));
+        return entity;
     }
 
     protected DepartmentVisualEntity TelegraphBeam(
@@ -84,8 +149,8 @@ public abstract class DepartmentWaveBase : BattleWave
         for (int i = 0; i < count; i++)
         {
             float angle = startAngle + MathHelper.TwoPi * i / count;
-            var velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed;
-            Fire(battle, origin, velocity, tint, scale);
+            Vector2 velocity = new(MathF.Cos(angle), MathF.Sin(angle));
+            Fire(battle, origin, velocity * speed, tint, scale);
         }
     }
 
@@ -110,5 +175,10 @@ public abstract class DepartmentWaveBase : BattleWave
         float c = MathF.Cos(radians);
         float s = MathF.Sin(radians);
         return new Vector2(value.X * c - value.Y * s, value.X * s + value.Y * c);
+    }
+
+    protected static int CellIndex(float position, float minimum, float cellSize, int count)
+    {
+        return Math.Clamp((int)((position - minimum) / cellSize), 0, count - 1);
     }
 }

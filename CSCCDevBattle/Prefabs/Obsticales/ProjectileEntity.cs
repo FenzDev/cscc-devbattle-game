@@ -4,14 +4,9 @@ public sealed class ProjectileEntity : Entity
 {
     public ProjectileEntity()
     {
-        Texture =
-            Assets.GetTexture(
-                "Battle/Projectile");
-
-        CollisionMode =
-            CollisionMode.PixelPerfect;
-
-        CollisionLayer =
-            "obstacles";
+        // This asset exists in ContentBuilder/Assets/Textures/Battle/Projectiles.
+        Texture = Assets.GetTexture("Battle/Projectiles/ProjectileBall");
+        CollisionMode = CollisionMode.PixelPerfect;
+        CollisionLayer = "obstacles";
     }
 }
