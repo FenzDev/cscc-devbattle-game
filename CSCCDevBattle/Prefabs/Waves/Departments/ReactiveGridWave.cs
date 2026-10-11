@@ -1,7 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 
-/// <summary>Five-by-five grid cells arm behind the player and at random; drifting balls cut across the board.</summary>
+/// <summary>Five-by-five monochrome grid: cells behind the player and occasional random cells arm before damaging the player.</summary>
 public sealed class ReactiveGridWave : DepartmentWaveBase
 {
     private sealed class GridCell
@@ -23,7 +23,7 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
     private int _ballsLaunched;
     private int _armedCells;
 
-    public ReactiveGridWave() => Duration = 11.5f;
+    public ReactiveGridWave() => Duration = 14f;
     public override Vector2 ArenaSize => new(280f, 250f);
 
     protected override void OnStart(BattleContext battle)
@@ -35,38 +35,33 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
         _ballsLaunched = 0;
 
         for (int row = 0; row < GridHeight; row++)
+        for (int col = 0; col < GridWidth; col++)
         {
-            for (int col = 0; col < GridWidth; col++)
-            {
-                Vector2 center = CellCenter(row, col);
-                DepartmentVisualEntity cellVisual = Visual(battle, center,
-                    new Vector2(_cellWidth - 2f, _cellHeight - 2f),
-                    new Color(75, 100, 145, 65));
-                cellVisual.CollisionMode = CollisionMode.None;
-                cellVisual.CollisionLayer = "obstacles";
-                cellVisual.ContactDamage = 1f;
-                _cells[row, col] = new GridCell { Entity = cellVisual, State = 0, Remaining = 0f };
-            }
+            DepartmentVisualEntity visual = Visual(battle, CellCenter(row, col),
+                new Vector2(_cellWidth - 2f, _cellHeight - 2f), new Color(82, 82, 82, 62));
+            visual.CollisionMode = CollisionMode.None;
+            visual.CollisionLayer = "obstacles";
+            visual.ContactDamage = 1f;
+            _cells[row, col] = new GridCell { Entity = visual, State = 0, Remaining = 0f };
         }
 
-        // Cell dividers are drawn over the translucent cell fill.
         for (int col = 0; col <= GridWidth; col++)
         {
             float x = _topLeft.X + col * _cellWidth;
             Visual(battle, new Vector2(x, _topLeft.Y + battle.Arena.Size.Y / 2f),
-                new Vector2(1.5f, battle.Arena.Size.Y - 10f), new Color(115, 145, 190, 170));
+                new Vector2(1.2f, battle.Arena.Size.Y - 10f), new Color(155, 155, 155, 145));
         }
         for (int row = 0; row <= GridHeight; row++)
         {
             float y = _topLeft.Y + row * _cellHeight;
             Visual(battle, new Vector2(_topLeft.X + battle.Arena.Size.X / 2f, y),
-                new Vector2(battle.Arena.Size.X - 10f, 1.5f), new Color(115, 145, 190, 170));
+                new Vector2(battle.Arena.Size.X - 10f, 1.2f), new Color(155, 155, 155, 145));
         }
 
         _previousPlayerCell = PlayerCell(battle.Player.Position);
         _randomCellTimer = 0.78f;
-        _ballTimer = 0.48f;
-        DebugState = "Reactive 5x5 board initialized; departed cells and random cells telegraph before damage";
+        _ballTimer = 0.5f;
+        DebugState = "Monochrome 5x5 board; departed and random cells warn in gray, then briefly flash red/white when dangerous";
     }
 
     protected override void OnUpdate(BattleContext battle, float deltaTime)
@@ -81,7 +76,7 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
         _randomCellTimer -= deltaTime;
         if (_randomCellTimer <= 0f)
         {
-            _randomCellTimer += 1.18f + Random.Shared.NextSingle() * 0.35f;
+            _randomCellTimer += 1.25f + Random.Shared.NextSingle() * 0.45f;
             for (int attempt = 0; attempt < 30; attempt++)
             {
                 int row = Random.Shared.Next(GridHeight);
@@ -94,31 +89,29 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
         }
 
         for (int row = 0; row < GridHeight; row++)
+        for (int col = 0; col < GridWidth; col++)
         {
-            for (int col = 0; col < GridWidth; col++)
+            GridCell cell = _cells[row, col];
+            if (cell.State == 0) continue;
+            cell.Remaining -= deltaTime;
+            if (cell.State == 1 && cell.Remaining <= 0f)
             {
-                GridCell cell = _cells[row, col];
-                if (cell.State == 0) continue;
-                cell.Remaining -= deltaTime;
-
-                if (cell.State == 1 && cell.Remaining <= 0f)
+                cell.State = 2;
+                cell.Remaining = 0.68f;
+                cell.Entity.CollisionMode = CollisionMode.RotatedBox;
+                cell.Entity.CollisionLayer = "obstacles";
+                cell.Entity.Tint = Color.White;
+            }
+            else if (cell.State == 2)
+            {
+                // Mostly gray/white. Red appears only for a short portion of the dangerous flash.
+                bool redFlash = ((int)(Elapsed * 12f + row * 2 + col) % 5) == 0;
+                cell.Entity.Tint = redFlash ? new Color(220, 70, 70) : Color.White;
+                if (cell.Remaining <= 0f)
                 {
-                    cell.State = 2;
-                    cell.Remaining = 0.72f;
-                    cell.Entity.CollisionMode = CollisionMode.RotatedBox;
-                    cell.Entity.CollisionLayer = "obstacles";
-                    cell.Entity.Tint = Color.White;
-                }
-                else if (cell.State == 2)
-                {
-                    float flash = 0.5f + 0.5f * MathF.Sin(Elapsed * 22f + row + col);
-                    cell.Entity.Tint = Color.Lerp(new Color(255, 55, 90), Color.White, flash);
-                    if (cell.Remaining <= 0f)
-                    {
-                        cell.State = 0;
-                        cell.Entity.CollisionMode = CollisionMode.None;
-                        cell.Entity.Tint = new Color(75, 100, 145, 65);
-                    }
+                    cell.State = 0;
+                    cell.Entity.CollisionMode = CollisionMode.None;
+                    cell.Entity.Tint = new Color(82, 82, 82, 62);
                 }
             }
         }
@@ -126,24 +119,21 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
         _ballTimer -= deltaTime;
         if (_ballTimer <= 0f)
         {
-            _ballTimer += 0.88f;
+            _ballTimer += 0.95f;
             LaunchSlidingBall(battle);
         }
-
-        DebugState = $"Grid hazards={_armedCells}; cell=({playerCell.Col},{playerCell.Row}); sliding balls={_ballsLaunched}";
+        DebugState = $"Grid hazards={_armedCells}; player cell=({playerCell.Col},{playerCell.Row}); sliding balls={_ballsLaunched}";
     }
 
     private void ArmCell(int row, int col)
     {
-        if (row < 0 || row >= GridHeight || col < 0 || col >= GridWidth)
-            return;
+        if (row < 0 || row >= GridHeight || col < 0 || col >= GridWidth) return;
         GridCell cell = _cells[row, col];
-        if (cell.State == 2)
-            return;
+        if (cell.State == 2) return;
         cell.State = 1;
-        cell.Remaining = 0.43f;
+        cell.Remaining = 0.46f;
         cell.Entity.CollisionMode = CollisionMode.None;
-        cell.Entity.Tint = new Color(255, 185, 65, 210);
+        cell.Entity.Tint = new Color(188, 188, 188, 190);
         _armedCells++;
     }
 
@@ -166,10 +156,9 @@ public sealed class ReactiveGridWave : DepartmentWaveBase
         string asset = _ballsLaunched % 2 == 0
             ? "Battle/Projectiles/ProjectileBall"
             : "Battle/Projectiles/ProjectileUnroundedBall";
-        float speed = 126f + Random.Shared.NextSingle() * 44f;
+        float speed = 142f + Random.Shared.NextSingle() * 38f;
         SpriteProjectile(battle, origin, asset, direction * speed, 1.7f,
-            _ballsLaunched % 2 == 0 ? new Color(255, 215, 100) : new Color(160, 105, 255),
-            lifetime: 3.3f, damaging: true,
+            Color.White, lifetime: 3.3f, damaging: true,
             redirectAt: 0.42f, redirectRadians: Random.Shared.NextSingle() * 1.1f - 0.55f,
             pixelPerfect: true);
         _ballsLaunched++;

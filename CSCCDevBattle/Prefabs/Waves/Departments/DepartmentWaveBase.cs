@@ -21,7 +21,7 @@ public abstract class DepartmentWaveBase : BattleWave
         var projectile = new ProjectileEntity
         {
             Position = position,
-            Tint = tint,
+            Tint = NeutralizeProjectileTint(tint),
             Scale = new Vector2(scale),
             ContactDamage = damaging ? 1f : 0f,
             DestroyOnPlayerContact = damaging,
@@ -32,7 +32,7 @@ public abstract class DepartmentWaveBase : BattleWave
             new DepartmentProjectileBehaviour(velocity, lifetime, redirectAt, redirectRadians));
     }
 
-    /// <summary>Spawns a 1x1 Pixel stretched into procedural UI or geometry.</summary>
+    /// <summary>Turns an existing 1x1 Pixel into a rectangle or line.</summary>
     protected DepartmentVisualEntity Visual(
         BattleContext battle,
         Vector2 position,
@@ -57,10 +57,7 @@ public abstract class DepartmentWaveBase : BattleWave
         return Spawn(battle, entity);
     }
 
-    /// <summary>
-    /// Spawns a sprite from the existing ContentBuilder texture tree.
-    /// Scale is the sprite multiplier, not a requested world size.
-    /// </summary>
+    /// <summary>Spawns a sprite from ContentBuilder/Assets/Textures. Scale multiplies source pixels.</summary>
     protected DepartmentVisualEntity Sprite(
         BattleContext battle,
         Vector2 position,
@@ -105,19 +102,28 @@ public abstract class DepartmentWaveBase : BattleWave
         bool destroyOnContact = true)
     {
         DepartmentVisualEntity entity = Sprite(
-            battle, position, asset, scale, tint, damaging,
+            battle, position, asset, scale,
+            NeutralizeProjectileTint(tint ?? Color.White), damaging,
             pixelPerfect: pixelPerfect, destroyOnContact: destroyOnContact);
 
-        // Most pixel-art projectile sprites have oversized transparent margins.
-        // Slightly inset the box where texture alpha testing is not requested.
+        // Keep broad-phase boxes slightly smaller than source art when using boxes.
         if (damaging && !pixelPerfect)
-        {
             entity.CollisionSize *= 0.72f;
-        }
 
         entity.Behaviours.Add(new DepartmentProjectileBehaviour(
             velocity, lifetime, redirectAt, redirectRadians));
         return entity;
+    }
+
+    /// <summary>Most hits are white/near-white; a small amount of tint remains for readability.</summary>
+    private static Color NeutralizeProjectileTint(Color tint)
+    {
+        const float accentStrength = 0.22f;
+        return new Color(
+            (byte)MathF.Round(MathHelper.Lerp(255f, tint.R, accentStrength)),
+            (byte)MathF.Round(MathHelper.Lerp(255f, tint.G, accentStrength)),
+            (byte)MathF.Round(MathHelper.Lerp(255f, tint.B, accentStrength)),
+            tint.A);
     }
 
     protected DepartmentVisualEntity TelegraphBeam(

@@ -1,101 +1,75 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 
-/// <summary>Map markers telegraph sweeping map-route lasers before firing them.</summary>
+/// <summary>A single map pin appears at a random point, aims at the player, and fires one fast, telegraphed laser.</summary>
 public sealed class LocationLaserWave : DepartmentWaveBase
 {
-    private DepartmentVisualEntity[] _markers = [];
-    private float _timer;
-    private int _pattern;
+    private sealed class ArrowState
+    {
+        public DepartmentVisualEntity Entity = null!;
+        public float Age;
+    }
 
-    public LocationLaserWave() => Duration = 10f;
-    public override Vector2 ArenaSize => new(270f, 240f);
+    private readonly List<ArrowState> _arrows = [];
+    private float _timer;
+    private int _shots;
+
+    public LocationLaserWave() => Duration = 13f;
+    public override Vector2 ArenaSize => new(280f, 245f);
 
     protected override void OnStart(BattleContext battle)
     {
-        Vector2 min = battle.Arena.InnerMinimum;
-        Vector2 max = battle.Arena.InnerMaximum;
-        Vector2 c = battle.Arena.Center;
-        _markers = new DepartmentVisualEntity[4];
-        Vector2[] positions =
-        {
-            new(min.X + 14f, c.Y), new(max.X - 14f, c.Y),
-            new(c.X, min.Y + 14f), new(c.X, max.Y - 14f)
-        };
-        for (int i = 0; i < _markers.Length; i++)
-            _markers[i] = Sprite(battle, positions[i],
-                "Battle/Projectiles/Mobile/ProjectileMapsArrow", 1.7f,
-                new Color(100, 225, 255));
-
-        _timer = 0.45f;
-        _pattern = 0;
-        DebugState = "Map markers triangulating; laser lanes are telegraphed";
+        _arrows.Clear();
+        _timer = 0.35f;
+        _shots = 0;
+        DebugState = "Location pin appears at a random point and telegraphs a laser directly toward the player";
     }
 
     protected override void OnUpdate(BattleContext battle, float deltaTime)
     {
         _timer -= deltaTime;
-        if (_timer > 0f)
-            return;
-
-        _timer += _pattern % 3 == 2 ? 1.35f : 1.05f;
-        Vector2 c = battle.Arena.Center;
-        Vector2 min = battle.Arena.InnerMinimum;
-        Vector2 max = battle.Arena.InnerMaximum;
-        Color warning = new(80, 210, 255, 220);
-        Color active = new(245, 255, 255);
-
-        switch (_pattern % 4)
+        if (_timer <= 0f)
         {
-            case 0:
-            {
-                float lane = min.Y + 32f + Random.Shared.NextSingle() * (max.Y - min.Y - 64f);
-                TelegraphBeam(battle, new Vector2(c.X, lane),
-                    new Vector2(battle.Arena.Size.X - 28f, 4f), 0f, warning, active, 0.72f, 0.43f);
-                _markers[0].Position = new Vector2(min.X + 12f, lane);
-                _markers[1].Position = new Vector2(max.X - 12f, lane);
-                _markers[0].Rotation = 0f;
-                _markers[1].Rotation = MathHelper.Pi;
-                break;
-            }
-            case 1:
-            {
-                float lane = min.X + 32f + Random.Shared.NextSingle() * (max.X - min.X - 64f);
-                TelegraphBeam(battle, new Vector2(lane, c.Y),
-                    new Vector2(4f, battle.Arena.Size.Y - 28f), 0f,
-                    warning, active, 0.78f, 0.40f);
-                _markers[2].Position = new Vector2(lane, min.Y + 12f);
-                _markers[3].Position = new Vector2(lane, max.Y - 12f);
-                _markers[2].Rotation = MathHelper.PiOver2;
-                _markers[3].Rotation = -MathHelper.PiOver2;
-                break;
-            }
-            case 2:
-            {
-                float angle = Random.Shared.NextSingle() < 0.5f ? -0.48f : 0.48f;
-                TelegraphBeam(battle, c, new Vector2(battle.Arena.Size.X * 1.15f, 4f),
-                    angle, new Color(255, 190, 80), new Color(255, 255, 245), 0.86f, 0.36f);
-                _markers[0].Position = new Vector2(min.X + 15f, min.Y + 22f);
-                _markers[1].Position = new Vector2(max.X - 15f, max.Y - 22f);
-                _markers[0].Rotation = angle;
-                _markers[1].Rotation = angle + MathHelper.Pi;
-                break;
-            }
-            default:
-            {
-                // Two crossing lanes leave a moving gap because their warnings are staggered.
-                float offset = Random.Shared.NextSingle() * 24f - 12f;
-                TelegraphBeam(battle, c + new Vector2(0f, offset),
-                    new Vector2(battle.Arena.Size.X - 35f, 3f), 0f,
-                    warning, active, 0.88f, 0.34f);
-                TelegraphBeam(battle, c + new Vector2(offset, 0f),
-                    new Vector2(3f, battle.Arena.Size.Y - 35f), 0f,
-                    new Color(100, 255, 190), Color.White, 1.18f, 0.28f);
-                break;
-            }
+            _timer += 0.88f + Random.Shared.NextSingle() * 0.22f;
+            FireOneLaser(battle);
         }
 
-        _pattern++;
-        DebugState = $"Laser pattern {_pattern}; map-marker warnings are active";
+        foreach (ArrowState arrow in _arrows.ToArray())
+        {
+            arrow.Age += deltaTime;
+            if (arrow.Age >= 0.82f)
+            {
+                arrow.Entity.DestroyRequested = true;
+                _arrows.Remove(arrow);
+            }
+        }
+        DebugState = $"Location lasers fired={_shots}; active pin telegraphs={_arrows.Count}";
+    }
+
+    private void FireOneLaser(BattleContext battle)
+    {
+        Vector2 min = battle.Arena.InnerMinimum;
+        Vector2 max = battle.Arena.InnerMaximum;
+        Vector2 start = new(
+            min.X + 20f + Random.Shared.NextSingle() * (max.X - min.X - 40f),
+            min.Y + 20f + Random.Shared.NextSingle() * (max.Y - min.Y - 40f));
+        Vector2 direction = Direction(start, battle.Player.Position);
+        float angle = MathF.Atan2(direction.Y, direction.X);
+        float length = MathHelper.Clamp(Vector2.Distance(start, battle.Player.Position) + 35f,
+            42f, MathF.Sqrt(battle.Arena.Size.LengthSquared()) + 24f);
+        Vector2 beamCenter = start + direction * (length * 0.5f);
+
+        DepartmentVisualEntity arrow = Sprite(battle, start,
+            "Battle/Projectiles/Mobile/ProjectileMapsArrow", 3.4f, Color.White);
+        // Source map-arrow points down. Rotate its down-vector to the firing direction.
+        arrow.Rotation = angle - MathHelper.PiOver2;
+        _arrows.Add(new ArrowState { Entity = arrow, Age = 0f });
+
+        TelegraphBeam(battle, beamCenter, new Vector2(length, 5f), angle,
+            new Color(165, 165, 165, 205), Color.White,
+            warningSeconds: 0.32f, activeSeconds: 0.30f);
+        _shots++;
     }
 }

@@ -2,38 +2,41 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
-/// <summary>Carves a connected grid maze; two map markers use the openings to chase the player.</summary>
+/// <summary>Open city-block maze with wide buildings, passable streets, and two route-following map markers.</summary>
 public sealed class CityMazeChaseWave : DepartmentWaveBase
 {
-    private const int Columns = 7;
-    private const int Rows = 6;
-    private const float WallThickness = 4f;
-
-    private readonly bool[,] _openRight = new bool[Rows, Columns];
-    private readonly bool[,] _openDown = new bool[Rows, Columns];
-    private readonly bool[,] _visited = new bool[Rows, Columns];
+    private const int Columns = 6;
+    private const int Rows = 5;
+    private readonly bool[,] _buildings = new bool[Rows, Columns];
     private readonly DepartmentVisualEntity[] _chasers = new DepartmentVisualEntity[2];
     private readonly (int Row, int Col)[] _chaserCells = new (int, int)[2];
-    private readonly (int Row, int Col)[] _waypointCells = new (int, int)[2];
+    private readonly (int Row, int Col)[] _waypoints = new (int, int)[2];
     private readonly bool[] _hasWaypoint = new bool[2];
     private float _cellWidth;
     private float _cellHeight;
     private Vector2 _topLeft;
 
-    public CityMazeChaseWave() => Duration = 11f;
+    public CityMazeChaseWave() => Duration = 13.5f;
     public override Vector2 ArenaSize => new(285f, 260f);
 
     protected override void OnStart(BattleContext battle)
     {
-        Array.Clear(_openRight, 0, _openRight.Length);
-        Array.Clear(_openDown, 0, _openDown.Length);
-        Array.Clear(_visited, 0, _visited.Length);
+        Array.Clear(_buildings, 0, _buildings.Length);
+        // Denser central building plots keep the perimeter and connecting streets open.
+        // The walkable-cell graph remains connected, so both chasers can always route toward the player.
+        (int Row, int Col)[] plots =
+        [
+            (1, 1), (1, 2), (1, 4),
+            (2, 1), (2, 2),
+            (3, 1), (3, 2), (3, 3), (3, 4)
+        ];
+        foreach ((int row, int col) in plots)
+            _buildings[row, col] = true;
+
         _topLeft = battle.Arena.InnerMinimum;
         _cellWidth = (battle.Arena.InnerMaximum.X - _topLeft.X) / Columns;
         _cellHeight = (battle.Arena.InnerMaximum.Y - _topLeft.Y) / Rows;
-
-        CarveMaze();
-        CreateMazeWalls(battle);
+        CreateBuildings(battle);
 
         int playerRow = Rows / 2;
         int playerCol = Columns / 2;
@@ -41,186 +44,148 @@ public sealed class CityMazeChaseWave : DepartmentWaveBase
 
         _chaserCells[0] = (0, 0);
         _chaserCells[1] = (Rows - 1, Columns - 1);
-        _hasWaypoint[0] = false;
-        _hasWaypoint[1] = false;
+        Array.Fill(_hasWaypoint, false);
         for (int i = 0; i < _chasers.Length; i++)
         {
+            _chaserCells[i] = FindNearestOpenCell(CellCenter(_chaserCells[i].Row, _chaserCells[i].Col));
             _chasers[i] = Sprite(battle, CellCenter(_chaserCells[i].Row, _chaserCells[i].Col),
-                "Battle/Projectiles/Mobile/ProjectileMapsArrow", 1.65f,
-                i == 0 ? new Color(255, 85, 100) : new Color(255, 205, 75),
-                damaging: true);
-            _chasers[i].CollisionSize *= 0.8f;
+                "Battle/Projectiles/Mobile/ProjectileMapsArrow", 1.9f,
+                Color.White, damaging: true);
+            _chasers[i].CollisionSize *= 0.72f;
         }
-
-        DebugState = "Connected city maze generated; two map markers are pursuing through corridors";
+        DebugState = "Open city blocks generated; two map markers pursue through the street grid";
     }
 
     protected override void OnUpdate(BattleContext battle, float deltaTime)
     {
-        int targetRow = CellIndex(battle.Player.Position.Y, _topLeft.Y, _cellHeight, Rows);
-        int targetCol = CellIndex(battle.Player.Position.X, _topLeft.X, _cellWidth, Columns);
-
+        (int Row, int Col) target = FindNearestOpenCell(battle.Player.Position);
         for (int i = 0; i < _chasers.Length; i++)
         {
-            (int Row, int Col) current = _chaserCells[i];
-            float speed = i == 0 ? 48f : 62f;
-            Vector2 currentWaypoint = CellCenter(_waypointCells[i].Row, _waypointCells[i].Col);
-            Vector2 toWaypoint = currentWaypoint - _chasers[i].Position;
-            float distanceToWaypoint = toWaypoint.Length();
+            float speed = i == 0 ? 58f : 70f;
+            Vector2 waypoint = _hasWaypoint[i]
+                ? CellCenter(_waypoints[i].Row, _waypoints[i].Col)
+                : CellCenter(_chaserCells[i].Row, _chaserCells[i].Col);
+            Vector2 offset = waypoint - _chasers[i].Position;
+            float distance = offset.Length();
 
-            // Finish the current corridor before choosing another route so a target change
-            // cannot make the marker cut diagonally through a maze wall.
-            if (!_hasWaypoint[i] || distanceToWaypoint <= speed * deltaTime + 0.5f)
+            if (!_hasWaypoint[i] || distance <= speed * deltaTime + 0.5f)
             {
                 if (_hasWaypoint[i])
                 {
-                    _chasers[i].Position = currentWaypoint;
-                    _chaserCells[i] = _waypointCells[i];
+                    _chasers[i].Position = waypoint;
+                    _chaserCells[i] = _waypoints[i];
                 }
-
-                current = _chaserCells[i];
-                int nextIndex = FindNextCell(current.Row, current.Col, targetRow, targetCol);
-                _waypointCells[i] = (nextIndex / Columns, nextIndex % Columns);
-                _hasWaypoint[i] = true;
-                currentWaypoint = CellCenter(_waypointCells[i].Row, _waypointCells[i].Col);
-                toWaypoint = currentWaypoint - _chasers[i].Position;
-                distanceToWaypoint = toWaypoint.Length();
+                int next = FindNextCell(_chaserCells[i].Row, _chaserCells[i].Col, target.Row, target.Col);
+                _waypoints[i] = (next / Columns, next % Columns);
+                _hasWaypoint[i] = next != _chaserCells[i].Row * Columns + _chaserCells[i].Col;
+                waypoint = CellCenter(_waypoints[i].Row, _waypoints[i].Col);
+                offset = waypoint - _chasers[i].Position;
+                distance = offset.Length();
             }
 
-            if (distanceToWaypoint > 0.01f)
+            if (distance > 0.01f)
             {
-                Vector2 direction = toWaypoint / distanceToWaypoint;
-                _chasers[i].Position += direction * MathF.Min(distanceToWaypoint, speed * deltaTime);
-                _chasers[i].Rotation = MathF.Atan2(direction.Y, direction.X) + MathHelper.PiOver2;
+                Vector2 direction = offset / distance;
+                _chasers[i].Position += direction * MathF.Min(distance, speed * deltaTime);
+                // Map marker texture points down at rotation zero.
+                _chasers[i].Rotation = MathF.Atan2(direction.Y, direction.X) - MathHelper.PiOver2;
             }
         }
-
-        DebugState = $"Maze {Columns}x{Rows}; player cell=({targetCol},{targetRow}); two route-following markers";
+        DebugState = $"City grid {Columns}x{Rows}; buildings={CountBuildings()}; markers={_chasers.Length}; player street target=({target.Col},{target.Row})";
     }
 
-    private void CarveMaze()
+    private void CreateBuildings(BattleContext battle)
     {
-        List<(int Row, int Col)> stack = [(Rows / 2, Columns / 2)];
-        _visited[Rows / 2, Columns / 2] = true;
-
-        while (stack.Count > 0)
-        {
-            (int Row, int Col) current = stack[^1];
-            List<(int Row, int Col)> options = [];
-            if (current.Col > 0 && !_visited[current.Row, current.Col - 1]) options.Add((current.Row, current.Col - 1));
-            if (current.Col < Columns - 1 && !_visited[current.Row, current.Col + 1]) options.Add((current.Row, current.Col + 1));
-            if (current.Row > 0 && !_visited[current.Row - 1, current.Col]) options.Add((current.Row - 1, current.Col));
-            if (current.Row < Rows - 1 && !_visited[current.Row + 1, current.Col]) options.Add((current.Row + 1, current.Col));
-
-            if (options.Count == 0)
-            {
-                stack.RemoveAt(stack.Count - 1);
-                continue;
-            }
-
-            (int Row, int Col) next = options[Random.Shared.Next(options.Count)];
-            if (next.Row == current.Row)
-                _openRight[current.Row, Math.Min(next.Col, current.Col)] = true;
-            else
-                _openDown[Math.Min(next.Row, current.Row), current.Col] = true;
-
-            _visited[next.Row, next.Col] = true;
-            stack.Add(next);
-        }
-    }
-
-    private void CreateMazeWalls(BattleContext battle)
-    {
-        // Maze walls are solid, so normal engine collision resolution pushes the player away.
         for (int row = 0; row < Rows; row++)
+        for (int col = 0; col < Columns; col++)
         {
-            for (int col = 0; col < Columns - 1; col++)
-            {
-                if (_openRight[row, col]) continue;
-                Vector2 position = new(
-                    _topLeft.X + (col + 1) * _cellWidth,
-                    _topLeft.Y + (row + 0.5f) * _cellHeight);
-                Spawn(battle, new SolidBlockEntity(position,
-                    new Vector2(WallThickness, _cellHeight + WallThickness * 0.25f))
-                    { Tint = new Color(85, 145, 180) });
-            }
-        }
+            if (!_buildings[row, col]) continue;
+            Vector2 center = CellCenter(row, col);
+            float width = _cellWidth * (0.57f + Random.Shared.NextSingle() * 0.12f);
+            float height = _cellHeight * (0.48f + Random.Shared.NextSingle() * 0.13f);
+            Vector2 size = new(width, height);
 
-        for (int row = 0; row < Rows - 1; row++)
+            Visual(battle, center + new Vector2(2f, 3f), size + new Vector2(3f), new Color(48, 48, 48));
+            Spawn(battle, new SolidBlockEntity(center, size)
+            { Tint = new Color(112, 112, 112) });
+            Visual(battle, new Vector2(center.X, center.Y - height * 0.27f),
+                new Vector2(width * 0.78f, 2f), new Color(155, 155, 155));
+            // Tiny monochrome windows give the rectangles a recognisable building silhouette.
+            float windowY = center.Y + height * 0.02f;
+            Visual(battle, new Vector2(center.X - width * 0.22f, windowY), new Vector2(3f, 4f), new Color(185, 185, 185));
+            Visual(battle, new Vector2(center.X + width * 0.22f, windowY), new Vector2(3f, 4f), new Color(185, 185, 185));
+        }
+    }
+
+    private (int Row, int Col) FindNearestOpenCell(Vector2 position)
+    {
+        (int Row, int Col) best = (Rows / 2, Columns / 2);
+        float bestDistance = float.MaxValue;
+        for (int row = 0; row < Rows; row++)
+        for (int col = 0; col < Columns; col++)
         {
-            for (int col = 0; col < Columns; col++)
+            if (_buildings[row, col]) continue;
+            float d = Vector2.DistanceSquared(position, CellCenter(row, col));
+            if (d < bestDistance)
             {
-                if (_openDown[row, col]) continue;
-                Vector2 position = new(
-                    _topLeft.X + (col + 0.5f) * _cellWidth,
-                    _topLeft.Y + (row + 1) * _cellHeight);
-                Spawn(battle, new SolidBlockEntity(position,
-                    new Vector2(_cellWidth + WallThickness * 0.25f, WallThickness))
-                    { Tint = new Color(85, 145, 180) });
+                bestDistance = d;
+                best = (row, col);
             }
         }
+        return best;
     }
 
     private int FindNextCell(int startRow, int startCol, int targetRow, int targetCol)
     {
-        int startIndex = startRow * Columns + startCol;
-        int targetIndex = targetRow * Columns + targetCol;
-        if (startIndex == targetIndex)
-            return startIndex;
+        int start = startRow * Columns + startCol;
+        int target = targetRow * Columns + targetCol;
+        if (start == target) return start;
 
-        int[,] previous = new int[Rows, Columns];
-        bool[,] seen = new bool[Rows, Columns];
-        for (int r = 0; r < Rows; r++)
-            for (int c = 0; c < Columns; c++)
-                previous[r, c] = -1;
-
-        Queue<(int Row, int Col)> queue = new();
-        queue.Enqueue((startRow, startCol));
-        seen[startRow, startCol] = true;
+        int[] previous = new int[Rows * Columns];
+        Array.Fill(previous, -1);
+        bool[] seen = new bool[Rows * Columns];
+        Queue<int> queue = new();
+        queue.Enqueue(start);
+        seen[start] = true;
 
         while (queue.Count > 0)
         {
-            (int Row, int Col) cell = queue.Dequeue();
-            int parentIndex = cell.Row * Columns + cell.Col;
-            if (parentIndex == targetIndex)
-                break;
-
-            Visit(cell.Row, cell.Col - 1, CanMove(cell.Row, cell.Col, cell.Row, cell.Col - 1), parentIndex);
-            Visit(cell.Row, cell.Col + 1, CanMove(cell.Row, cell.Col, cell.Row, cell.Col + 1), parentIndex);
-            Visit(cell.Row - 1, cell.Col, CanMove(cell.Row, cell.Col, cell.Row - 1, cell.Col), parentIndex);
-            Visit(cell.Row + 1, cell.Col, CanMove(cell.Row, cell.Col, cell.Row + 1, cell.Col), parentIndex);
+            int current = queue.Dequeue();
+            if (current == target) break;
+            int row = current / Columns;
+            int col = current % Columns;
+            Visit(row - 1, col, current);
+            Visit(row + 1, col, current);
+            Visit(row, col - 1, current);
+            Visit(row, col + 1, current);
         }
 
-        if (previous[targetRow, targetCol] < 0)
-            return startIndex;
-
-        int step = targetIndex;
-        while (previous[step / Columns, step % Columns] != startIndex)
+        if (previous[target] < 0) return start;
+        int step = target;
+        while (previous[step] != start)
         {
-            int parent = previous[step / Columns, step % Columns];
-            if (parent < 0)
-                return startIndex;
-            step = parent;
+            step = previous[step];
+            if (step < 0) return start;
         }
         return step;
 
-        void Visit(int row, int col, bool connected, int parentIndex)
+        void Visit(int row, int col, int from)
         {
-            if (!connected || row < 0 || row >= Rows || col < 0 || col >= Columns || seen[row, col])
-                return;
-            seen[row, col] = true;
-            previous[row, col] = parentIndex;
-            queue.Enqueue((row, col));
+            if (row < 0 || row >= Rows || col < 0 || col >= Columns || _buildings[row, col]) return;
+            int next = row * Columns + col;
+            if (seen[next]) return;
+            seen[next] = true;
+            previous[next] = from;
+            queue.Enqueue(next);
         }
     }
 
-    private bool CanMove(int row, int col, int nextRow, int nextCol)
+    private int CountBuildings()
     {
-        if (nextRow < 0 || nextRow >= Rows || nextCol < 0 || nextCol >= Columns)
-            return false;
-        if (nextRow == row)
-            return nextCol < col ? _openRight[row, nextCol] : _openRight[row, col];
-        return nextRow < row ? _openDown[nextRow, col] : _openDown[row, col];
+        int count = 0;
+        foreach (bool isBuilding in _buildings)
+            if (isBuilding) count++;
+        return count;
     }
 
     private Vector2 CellCenter(int row, int col) => new(
