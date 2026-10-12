@@ -49,7 +49,7 @@ public sealed class NumericWarningWave : DepartmentWaveBase
         _spawnTimer -= deltaTime;
         if (_spawnTimer <= 0f && _warnings.Count == 0)
         {
-            _spawnTimer = 1.55f + Random.Shared.NextSingle() * 0.22f;
+            _spawnTimer = 0.95f + Random.Shared.NextSingle() * 0.22f;
             SpawnSample(battle);
         }
 
@@ -78,10 +78,10 @@ public sealed class NumericWarningWave : DepartmentWaveBase
         string asset = CvAssets[Random.Shared.Next(CvAssets.Length)];
         Texture2D texture = Assets.GetTexture(asset);
         Vector2 center = battle.Arena.Center + new Vector2(
-            Random.Shared.NextSingle() * 8f - 4f,
-            Random.Shared.NextSingle() * 8f - 4f);
-        float rotation = Random.Shared.NextSingle() * 0.09f - 0.045f;
-        float sizeJitter = 0.985f + Random.Shared.NextSingle() * 0.03f;
+            Random.Shared.NextSingle() * 24f - 4f,
+            Random.Shared.NextSingle() * 24f - 4f);
+        float rotation = Random.Shared.NextSingle() * 1.2f - 0.045f;
+        float sizeJitter = 1.25f + Random.Shared.NextSingle() * 0.03f;
         var entity = Sprite(battle, center, asset, 1f,
             new Color(225, 225, 225, 68), damaging: true, pixelPerfect: true);
         entity.Scale = new Vector2(
