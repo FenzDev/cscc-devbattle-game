@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework;
 /// <summary>
 /// A synchronized scrolling feed of grayscale button dashes.
 /// All rows share one continuous scroll offset and velocity.
-/// Direction changes ease smoothly without independently wrapping rows.
+/// Rows are positioned from immutable base positions to prevent drift.
 /// A larger, slower finger pursues the player.
 /// </summary>
 public sealed class MobileScrollerWave : DepartmentWaveBase
@@ -20,13 +20,14 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
     private readonly List<FeedRow> _rows = [];
 
     private DepartmentVisualEntity _finger = null!;
+
     private float _retargetTimer;
     private float _scrollOffset;
     private float _scrollVelocity;
     private float _targetScrollVelocity;
+
     private Vector2 _fingerTarget;
     private int _swipeCount;
-
     private float _previousPlayerSpeedMultiplier;
 
     private const int RowCount = 10;
@@ -70,12 +71,11 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         _targetScrollVelocity = ScrollSpeed;
         _swipeCount = 0;
 
-        float centerY = (min.Y + max.Y) * 0.5f;
-
+        // Anchor the repeating pattern just above the arena.
+        // Every row has a fixed base Y separated by RowSpacing.
         for (int i = 0; i < RowCount; i++)
         {
-            float baseY =
-                centerY + (i - (RowCount - 1) * 0.5f) * RowSpacing;
+            float baseY = min.Y - RowSpacing + i * RowSpacing;
 
             var row = new FeedRow
             {
@@ -94,6 +94,9 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
             _rows.Add(row);
         }
 
+        // Place the entire grid correctly before the first update.
+        UpdateRowPositions(min.Y);
+
         Vector2 center = battle.Arena.Center;
 
         _finger = Sprite(
@@ -109,6 +112,7 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
             0f);
 
         _finger.CollisionSize = new Vector2(8f, 12f);
+
         _finger.CollisionOffset = new Vector2(
             0f,
             _finger.Texture.Height * FingerScale * 0.34f);
@@ -122,7 +126,7 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         _retargetTimer = 0.9f;
 
         DebugState =
-            $"Smooth synchronized feed; rows={RowCount}; " +
+            $"Synchronized feed; rows={RowCount}; " +
             $"spacing={RowSpacing:0}; scroll={ScrollSpeed:0}px/s";
     }
 
@@ -133,78 +137,29 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         Vector2 min = battle.Arena.InnerMinimum;
         Vector2 max = battle.Arena.InnerMaximum;
 
-        // Smoothly accelerate toward the requested scroll velocity.
-        // Every row uses this same velocity.
+        // Smoothly accelerate toward the requested velocity.
         float velocityDifference =
             _targetScrollVelocity - _scrollVelocity;
 
-        float maxVelocityChange = ScrollAcceleration * deltaTime;
+        float maxVelocityChange =
+            ScrollAcceleration * deltaTime;
 
         _scrollVelocity += MathHelper.Clamp(
             velocityDifference,
             -maxVelocityChange,
             maxVelocityChange);
 
-        // Advance one shared offset for the entire pattern.
+        // One shared offset for the entire pattern.
         _scrollOffset += _scrollVelocity * deltaTime;
 
-        // Keep the offset bounded while preserving continuous movement.
+        // Keep the offset bounded without moving entities separately.
         _scrollOffset %= PatternHeight;
 
         if (_scrollOffset < 0f)
             _scrollOffset += PatternHeight;
 
-        // Move all objects by the exact same frame displacement.
-        // No row-specific wrapping, repositioning, or accumulated drift.
-        
-        // Move every dash by the same amount.
-        // Keep each row at its original Y position.
-        float movementY = _scrollVelocity * deltaTime;
-
-        foreach (FeedRow row in _rows)
-        {
-            foreach (DepartmentVisualEntity item in row.Items)
-            {
-                item.Position += new Vector2(0f, movementY);
-            }
-        }
-
-
-        // Wrap the complete pattern as a single unit.
-        // Because the repeating pattern height is RowCount * RowSpacing,
-        // translating by one pattern height returns it to the same layout.
-        if (_scrollOffset >= PatternHeight - RowSpacing)
-        {
-            float wrapDistance = PatternHeight;
-
-            foreach (FeedRow row in _rows)
-            {
-                foreach (DepartmentVisualEntity item in row.Items)
-                {
-                    item.Position -= new Vector2(0f, wrapDistance);
-                }
-
-                row.BaseY -= wrapDistance;
-            }
-
-            _scrollOffset -= wrapDistance;
-        }
-        else if (_scrollOffset < 0f)
-        {
-            float wrapDistance = PatternHeight;
-
-            foreach (FeedRow row in _rows)
-            {
-                foreach (DepartmentVisualEntity item in row.Items)
-                {
-                    item.Position += new Vector2(0f, wrapDistance);
-                }
-
-                row.BaseY += wrapDistance;
-            }
-
-            _scrollOffset += wrapDistance;
-        }
+        // Calculate each row from its immutable base position.
+        UpdateRowPositions(min.Y);
 
         // Choose the finger's next target.
         _retargetTimer -= deltaTime;
@@ -214,7 +169,8 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
             _retargetTimer =
                 0.95f + Random.Shared.NextSingle() * 0.4f;
 
-            bool nearPlayer = Random.Shared.NextSingle() < 0.15f;
+            bool nearPlayer =
+                Random.Shared.NextSingle() < 0.15f;
 
             _fingerTarget = nearPlayer
                 ? ClampToArena(
@@ -226,11 +182,12 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
                     min.X + 16f +
                     Random.Shared.NextSingle() *
                     (max.X - min.X - 32f),
+
                     min.Y + 16f +
                     Random.Shared.NextSingle() *
                     (max.Y - min.Y - 32f));
 
-            // Change direction gradually instead of instantly reversing.
+            // Reverse the whole feed smoothly.
             _targetScrollVelocity =
                 _fingerTarget.Y < _finger.Position.Y
                     ? ScrollSpeed
@@ -240,7 +197,9 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         }
 
         // Smooth finger movement toward its target.
-        Vector2 fingerDelta = _fingerTarget - _finger.Position;
+        Vector2 fingerDelta =
+            _fingerTarget - _finger.Position;
+
         float distance = fingerDelta.Length();
 
         if (distance > 1f)
@@ -262,6 +221,31 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
             $"pieces={CountPieces()}";
     }
 
+    /// <summary>
+    /// Repositions every row from its original Y plus the shared offset.
+    /// Wrapping is based on the full repeating pattern height.
+    /// </summary>
+    private void UpdateRowPositions(float arenaMinY)
+    {
+        float wrapMin = arenaMinY - RowSpacing;
+        float wrapMax = wrapMin + PatternHeight;
+
+        foreach (FeedRow row in _rows)
+        {
+            float rowY = WrapY(
+                row.BaseY + _scrollOffset,
+                wrapMin,
+                wrapMax);
+
+            foreach (DepartmentVisualEntity item in row.Items)
+            {
+                item.Position = new Vector2(
+                    item.Position.X,
+                    rowY);
+            }
+        }
+    }
+
     protected override void OnEnd(BattleContext battle)
     {
         battle.PlayerMovementSpeedMultiplier =
@@ -279,14 +263,17 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         float endX = maxX + DashWidth;
 
         float clusterLength =
-            DashWidth * 3f + DashGap * 2f + ClusterGap;
+            DashWidth * 3f +
+            DashGap * 2f +
+            ClusterGap;
 
         int clusterCount = (int)MathF.Ceiling(
             (endX - startX) / clusterLength) + 1;
 
         for (int cluster = 0; cluster < clusterCount; cluster++)
         {
-            float clusterStart = startX + cluster * clusterLength;
+            float clusterStart =
+                startX + cluster * clusterLength;
 
             for (int dash = 0; dash < 3; dash++)
             {
@@ -294,8 +281,11 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
                     dash * (DashWidth + DashGap) +
                     DashWidth * 0.5f;
 
-                if (x < minX - DashWidth || x > maxX + DashWidth)
+                if (x < minX - DashWidth ||
+                    x > maxX + DashWidth)
+                {
                     continue;
+                }
 
                 AddButton(
                     battle,
@@ -344,9 +334,24 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
         return count;
     }
 
+    private static float WrapY(
+        float y,
+        float minY,
+        float maxY)
+    {
+        float height = maxY - minY;
+
+        if (height <= 0f)
+            return minY;
+
+        return minY +
+            ((y - minY) % height + height) % height;
+    }
+
     private static Color ButtonTone(int cluster, int dash)
     {
         int[] tones = [88, 108, 128];
+
         int tone = tones[(cluster + dash) % tones.Length];
 
         return new Color(
