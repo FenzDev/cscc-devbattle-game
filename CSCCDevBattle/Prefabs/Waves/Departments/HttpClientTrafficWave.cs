@@ -38,20 +38,20 @@ public sealed class HttpClientTrafficWave : DepartmentWaveBase
     private float _responseY;
     private int _htmlSplits;
 
-    public HttpClientTrafficWave() => Duration = 13.5f;
+    public HttpClientTrafficWave() => Duration = 18.0f;
     public override Vector2 ArenaSize => new(280f, 240f);
 
     protected override void OnStart(BattleContext battle)
     {
         Vector2 c = battle.Arena.Center;
-        _client = Sprite(battle, new Vector2(battle.Arena.Minimum.X - 38f, c.Y),
-            "Battle/Projectiles/Web/Client", 1.65f, Color.White);
-        _server = Sprite(battle, new Vector2(battle.Arena.Maximum.X + 38f, c.Y),
-            "Battle/Projectiles/Web/Server", 1.65f, Color.White);
+        _client = Sprite(battle, new Vector2(battle.Arena.Minimum.X - 120f, c.Y),
+            "Battle/Projectiles/Web/Client", 4.0f, Color.White);
+        _server = Sprite(battle, new Vector2(battle.Arena.Maximum.X + 120f, c.Y),
+            "Battle/Projectiles/Web/Server", 4.0f, Color.White);
 
         _htmlCarriers.Clear();
         _sendTimer = 0.7f;
-        _responseDelay = 0f;
+        _responseDelay = 1f;
         _htmlTimer = 2.0f;
         _packetIndex = 0;
         _htmlSplits = 0;
