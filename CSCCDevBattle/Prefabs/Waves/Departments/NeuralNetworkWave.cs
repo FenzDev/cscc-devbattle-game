@@ -19,26 +19,30 @@ public sealed class NeuralNetworkWave : DepartmentWaveBase
 
     protected override void OnStart(BattleContext battle)
     {
+        // set player pos to bottom
+        battle.Player.Position = 
+            new(battle.Arena.Center.X, battle.Arena.InnerMaximum.Y - 20f);
+
         Vector2 c = battle.Arena.Center;
         float[] layerX = { -76f, 0f, 76f };
         float[] nodeY = { -48f, 0f, 48f };
         for (int layer = 0; layer < LayerCount; layer++)
-        for (int node = 0; node < NodesPerLayer; node++)
-            _positions[layer * NodesPerLayer + node] = c + new Vector2(layerX[layer], nodeY[node]);
+            for (int node = 0; node < NodesPerLayer; node++)
+                _positions[layer * NodesPerLayer + node] = c + new Vector2(layerX[layer], nodeY[node]);
 
         // Only forward connections are drawn: layer 1 -> layer 2 -> layer 3.
         // No neuron is connected horizontally to another neuron in its own layer.
         for (int layer = 0; layer < LayerCount - 1; layer++)
-        for (int source = 0; source < NodesPerLayer; source++)
-        for (int destination = 0; destination < NodesPerLayer; destination++)
-        {
-            Vector2 a = _positions[layer * NodesPerLayer + source];
-            Vector2 b = _positions[(layer + 1) * NodesPerLayer + destination];
-            Vector2 delta = b - a;
-            Visual(battle, (a + b) * 0.5f,
-                new Vector2(delta.Length(), 1.4f), new Color(165, 165, 165, 155),
-                MathF.Atan2(delta.Y, delta.X));
-        }
+            for (int source = 0; source < NodesPerLayer; source++)
+                for (int destination = 0; destination < NodesPerLayer; destination++)
+                {
+                    Vector2 a = _positions[layer * NodesPerLayer + source];
+                    Vector2 b = _positions[(layer + 1) * NodesPerLayer + destination];
+                    Vector2 delta = b - a;
+                    Visual(battle, (a + b) * 0.5f,
+                        new Vector2(delta.Length(), 1.4f), new Color(165, 165, 165, 155),
+                        MathF.Atan2(delta.Y, delta.X));
+                }
 
         for (int i = 0; i < _nodes.Length; i++)
         {
