@@ -1,6 +1,7 @@
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 public class Game1 : Game
 {
@@ -9,30 +10,36 @@ public class Game1 : Game
   private const int DEBUG_SCREEN_WIDTH = 600;
   private const int DEBUG_SCREEN_HEIGHT = 600;
 
-  public static Game1 Singleton { get; private set; }
+  public static Game1 Singleton { get; private set; } = null!;
 
   private readonly GraphicsDeviceManager _graphics;
   public SpriteBatch SpriteBatch { get; private set; } = null!;
   public Texture2D Pixel { get; private set; } = null!;
-  public SpriteFontBase FontTitle { get; private set; }
-  public SpriteFontBase FontText { get; private set; }
-  public SpriteFontBase FontDebug { get; private set; }
+  public SpriteFontBase FontTitle { get; private set; } = null!;
+  public SpriteFontBase FontText { get; private set; } = null!;
+  public SpriteFontBase FontDebug { get; private set; } = null!;
+  public Effect? PostEffect { get; set; }
 
-  public Effect PostEffect { get; set; }
 #if DEBUG
   public bool DebugEnabled { get; private set; } = true;
 #else
-    public bool DebugEnabled { get; private set; } = false;
+  public bool DebugEnabled { get; private set; } = false;
 #endif
 
-  public Scene CurrentScene { get; private set; }
+  public bool IsPaused { get; private set; }
+  public Scene? CurrentScene { get; private set; }
+
+  private RenderTarget2D _screenRenderTarget = null!;
+  private FontSystem _sansFontSystem = null!;
+  private FontSystem _monoFontSystem = null!;
+  private bool _startingScene;
+  private bool _leavingScene;
+  private Scene? _nextScene;
 
   public Game1()
   {
-    _graphics = new(this);
+    _graphics = new GraphicsDeviceManager(this);
     Singleton = this;
-
-
     Content.RootDirectory = "Content";
     IsMouseVisible = true;
 
@@ -47,46 +54,27 @@ public class Game1 : Game
 #endif
   }
 
-  private RenderTarget2D _ScreenRenderTarget;
-  private FontSystem _SansFontSystem;
-  private FontSystem _MonoFontSystem;
   protected override void LoadContent()
   {
     SpriteBatch = new SpriteBatch(GraphicsDevice);
-
     Pixel = new Texture2D(GraphicsDevice, 1, 1);
     Pixel.SetData([Color.White]);
 
-    _SansFontSystem = new FontSystem(new()
-    {
-      // FontResolutionFactor = 2
-    });
+    _sansFontSystem = new FontSystem(new());
     using (var font = TitleContainer.OpenStream("Content/Fonts/SansFont.ttf"))
-    {
-      _SansFontSystem.AddFont(font);
-    }
-    _MonoFontSystem = new FontSystem(new()
-    {
-      // FontResolutionFactor = 2
-    });
+      _sansFontSystem.AddFont(font);
+
+    _monoFontSystem = new FontSystem(new());
     using (var font = TitleContainer.OpenStream("Content/Fonts/MonoFont.ttf"))
-    {
-      _MonoFontSystem.AddFont(font);
-    }
+      _monoFontSystem.AddFont(font);
 
-    FontTitle = _SansFontSystem.GetFont(48);
-    FontText = _SansFontSystem.GetFont(28);
-    FontDebug = _MonoFontSystem.GetFont(16);
-
-    _ScreenRenderTarget = new RenderTarget2D(GraphicsDevice, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT);
-
+    FontTitle = _sansFontSystem.GetFont(48);
+    FontText = _sansFontSystem.GetFont(28);
+    FontDebug = _monoFontSystem.GetFont(16);
+    _screenRenderTarget = new RenderTarget2D(GraphicsDevice, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT);
     GoToScene(new BattleScene());
   }
 
-  // private bool _SceneIsRunning = false;
-  private bool _StartingScene = false;
-  private bool _LeavingScene = false;
-  private Scene _NextScene = null;
   protected override void Update(GameTime gameTime)
   {
     Input.Update();
@@ -97,30 +85,39 @@ public class Game1 : Game
       return;
     }
 
-    if (_StartingScene)
+    // Escape toggles pause only after the current scene's transition has settled.
+    if (!_startingScene && !_leavingScene && Input.Pressed(Keys.Escape))
+      IsPaused = !IsPaused;
+
+    if (IsPaused)
+    {
+      // Keep debug commands usable, but freeze scene updates and game timers.
+      if (DebugEnabled)
+        CurrentScene.Debug.Update(gameTime);
+
+      base.Update(gameTime);
+      return;
+    }
+
+    if (_startingScene)
     {
       if (CurrentScene.SetupTick(gameTime) == TransitionState.Finished)
-      {
-        _StartingScene = false;
-      }
+        _startingScene = false;
     }
-    else if (_LeavingScene)
+    else if (_leavingScene)
     {
       if (CurrentScene.CleanupTick(gameTime) == TransitionState.Finished)
       {
-        _LeavingScene = false;
-
-        CurrentScene = _NextScene;
-        _StartingScene = true;
+        _leavingScene = false;
+        CurrentScene = _nextScene;
+        _startingScene = true;
       }
     }
     else
     {
       CurrentScene.Timers.Update(gameTime);
       if (DebugEnabled)
-      {
         CurrentScene.Debug.Update(gameTime);
-      }
       CurrentScene.Tick(gameTime, this);
     }
 
@@ -129,82 +126,80 @@ public class Game1 : Game
 
   protected override void Draw(GameTime gameTime)
   {
-    // Render the game at its internal resolution.
-    GraphicsDevice.SetRenderTarget(_ScreenRenderTarget);
+    GraphicsDevice.SetRenderTarget(_screenRenderTarget);
     GraphicsDevice.Clear(Color.Black);
-
     CurrentScene?.Draw(gameTime, this);
 
-    // Switch back to the actual fullscreen backbuffer.
-    GraphicsDevice.SetRenderTarget(null);
+    if (IsPaused)
+      DrawPauseOverlay();
 
+    GraphicsDevice.SetRenderTarget(null);
     GraphicsDevice.Clear(Color.Black);
 
     Viewport viewport = GraphicsDevice.Viewport;
-
-    // Preserve the square aspect ratio.
     float scale = System.MathF.Min(
-        viewport.Width / (float)BASE_SCREEN_WIDTH,
-        viewport.Height / (float)BASE_SCREEN_HEIGHT
-    );
+      viewport.Width / (float)BASE_SCREEN_WIDTH,
+      viewport.Height / (float)BASE_SCREEN_HEIGHT);
 
     int width = (int)(BASE_SCREEN_WIDTH * scale);
     int height = (int)(BASE_SCREEN_HEIGHT * scale);
+    Rectangle destination = new(
+      (viewport.Width - width) / 2,
+      (viewport.Height - height) / 2,
+      width,
+      height);
 
-    // Center the game image.
-    Rectangle destination = new Rectangle(
-        (viewport.Width - width) / 2,
-        (viewport.Height - height) / 2,
-        width,
-        height
-    );
-
-    SpriteBatch.Begin(
-        samplerState: SamplerState.PointClamp,
-        effect: PostEffect
-    );
-
-    SpriteBatch.Draw(
-        _ScreenRenderTarget,
-        destination,
-        Color.White
-    );
-
+    SpriteBatch.Begin(samplerState: SamplerState.PointClamp, effect: PostEffect);
+    SpriteBatch.Draw(_screenRenderTarget, destination, Color.White);
     SpriteBatch.End();
 
-    // Debug UI is drawn directly on the actual screen.
+    // Debug remains readable above the pause overlay.
     if (DebugEnabled)
     {
-      SpriteBatch.Begin(
-          samplerState: SamplerState.PointClamp
-      );
-
-      CurrentScene?.Debug.Draw(
-          SpriteBatch,
-          FontDebug,
-          Pixel
-      );
-
+      SpriteBatch.Begin(samplerState: SamplerState.PointClamp);
+      CurrentScene?.Debug.Draw(SpriteBatch, FontDebug, Pixel);
       SpriteBatch.End();
     }
   }
 
+  private void DrawPauseOverlay()
+  {
+    SpriteBatch.Begin(samplerState: SamplerState.PointClamp);
+    SpriteBatch.Draw(
+      Pixel,
+      new Rectangle(0, 0, BASE_SCREEN_WIDTH, BASE_SCREEN_HEIGHT),
+      Color.Black * 0.62f);
+
+    const string title = "PAUSED";
+    Vector2 titleSize = FontTitle.MeasureString(title);
+    Vector2 titlePosition = new(
+      (BASE_SCREEN_WIDTH - titleSize.X) * 0.5f,
+      (BASE_SCREEN_HEIGHT - titleSize.Y) * 0.5f - 12f);
+    FontTitle.DrawText(SpriteBatch, title, titlePosition, Color.Yellow);
+
+    const string hint = "Press ESC to resume";
+    Vector2 hintSize = FontText.MeasureString(hint);
+    Vector2 hintPosition = new(
+      (BASE_SCREEN_WIDTH - hintSize.X) * 0.5f,
+      titlePosition.Y + titleSize.Y + 14f);
+    FontText.DrawText(SpriteBatch, hint, hintPosition, new Color(255, 235, 150));
+    SpriteBatch.End();
+  }
+
   public void GoToScene(Scene scene)
   {
-    if (_StartingScene || _LeavingScene)
+    if (_startingScene || _leavingScene)
       return;
 
-    _NextScene = scene;
-
+    _nextScene = scene;
     if (CurrentScene is null)
     {
       CurrentScene = scene;
-      _StartingScene = true;
+      _startingScene = true;
     }
     else
     {
-      _LeavingScene = true;
+      _leavingScene = true;
     }
   }
-
 }
