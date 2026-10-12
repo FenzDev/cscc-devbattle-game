@@ -23,7 +23,7 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
     private int _launched;
     private int _obstaclesLaunched;
 
-    public VisionPursuitWave() => Duration = 14f;
+    public VisionPursuitWave() => Duration = 20f;
     public override Vector2 ArenaSize => new(280f, 245f);
 
     protected override void OnStart(BattleContext battle)
@@ -33,8 +33,8 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
         _playerMoving = false;
         Vector2 player = battle.Player.Position;
         // A one-pixel-inset vision box compared with the original frame.
-        const float width = 56f;
-        const float height = 42f;
+        const float width = 24f;
+        const float height = 24f;
         _visionFrame[0] = Visual(battle, player + new Vector2(0f, -height / 2f), new Vector2(width, 2f), new Color(100, 190, 100));
         _visionFrame[1] = Visual(battle, player + new Vector2(0f, height / 2f), new Vector2(width, 2f), new Color(100, 190, 100));
         _visionFrame[2] = Visual(battle, player + new Vector2(-width / 2f, 0f), new Vector2(2f, height), new Color(100, 190, 100));
@@ -54,8 +54,8 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
         _lastPlayerPosition = player;
 
         Color frameColor = _playerMoving ? new Color(235, 70, 70) : new Color(105, 205, 105);
-        const float width = 56f;
-        const float height = 42f;
+        const float width = 24;
+        const float height = 24f;
         _visionFrame[0].Position = player + new Vector2(0f, -height / 2f);
         _visionFrame[1].Position = player + new Vector2(0f, height / 2f);
         _visionFrame[2].Position = player + new Vector2(-width / 2f, 0f);
@@ -72,7 +72,7 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
         _obstacleTimer -= deltaTime;
         if (_obstacleTimer <= 0f)
         {
-            _obstacleTimer += 1.55f + Random.Shared.NextSingle() * 0.4f;
+            _obstacleTimer += 0.95f + Random.Shared.NextSingle() * 0.4f;
             SpawnObstacle(battle);
         }
 
@@ -91,7 +91,7 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
             {
                 Vector2 desired = Vector2.Normalize(toPlayer);
                 rocket.Velocity += desired * 76f * deltaTime;
-                Vector2 preferred = desired * 162f;
+                Vector2 preferred = desired * 192f;
                 rocket.Velocity = Vector2.Lerp(rocket.Velocity, preferred,
                     MathHelper.Clamp(deltaTime * 1.05f, 0f, 1f));
                 float speed = rocket.Velocity.Length();
@@ -137,7 +137,7 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
         };
         Vector2 direction = Direction(start, battle.Player.Position);
         DepartmentVisualEntity missile = Sprite(battle, start,
-            "Battle/Projectiles/AI/Missile", 2.2f, Color.White, damaging: true);
+            "Battle/Projectiles/AI/Missile", 1.5f, Color.White, damaging: true);
         missile.CollisionSize *= 0.68f;
         missile.Rotation = MathF.Atan2(direction.Y, direction.X);
         _rockets.Add(new RocketState
@@ -170,7 +170,7 @@ public sealed class VisionPursuitWave : DepartmentWaveBase
             ? "Battle/Projectiles/ProjectileBall"
             : "Battle/Projectiles/ProjectileUnroundedBall";
         SpriteProjectile(battle, start, asset,
-            direction * (115f + Random.Shared.NextSingle() * 22f),
+            direction * (180f + Random.Shared.NextSingle() * 22f),
             1.7f, Color.White, lifetime: 3f,
             damaging: true, pixelPerfect: true);
         _obstaclesLaunched++;
