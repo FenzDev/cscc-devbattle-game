@@ -85,7 +85,7 @@ public sealed class MainMenuScene : Scene
         batch.Draw(game.Pixel, nameBox, new Color(18, 20, 29));
         DrawOutline(batch, game.Pixel, nameBox, 2, new Color(185, 185, 185));
         string visibleName = string.IsNullOrEmpty(_name) ? "PLAYER" : _name;
-        DrawCentered(batch, game.FontTitle, visibleName, 318f, Color.Yellow);
+        DrawCentered(batch, game.FontTitle, visibleName, 318f, string.IsNullOrWhiteSpace(_name)? Color.Gray: Color.Yellow);
 
         DrawCentered(batch, game.FontText, "TYPE TO EDIT  |  BACKSPACE TO DELETE", 405f, Color.LightGray);
         DrawCentered(batch, game.FontText, "ENTER  -  START ENCOUNTER", 465f, Color.White);
