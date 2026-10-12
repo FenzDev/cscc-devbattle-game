@@ -19,6 +19,9 @@ public sealed class BattleContext
 
     public bool PlayerMovementEnabled { get; set; }
 
+    /// <summary>Multiplier applied to normal player movement speed by the player behaviour.</summary>
+    public float PlayerMovementSpeedMultiplier { get; set; } = 1f;
+
     public BattleArena Arena { get; }
 
     public BattleWave? CurrentWave { get; set; }
@@ -39,7 +42,6 @@ public sealed class BattleContext
 
     public BossCharacter? Boss { get; set; }
 
-    
     public BattleContext(TimersManager timers)
     {
         Timers = timers;
@@ -52,8 +54,7 @@ public sealed class BattleContext
             new Vector2(240f, 240f),
             4f);
 
-        Player.Position =
-            Arena.Center;
+        Player.Position = Arena.Center;
 
         Spawn(Player);
     }
@@ -75,5 +76,4 @@ public sealed class BattleContext
 
         _entities.Remove(entity);
     }
-    
 }
