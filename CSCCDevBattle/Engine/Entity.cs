@@ -105,6 +105,10 @@ public abstract class Entity : ICollisionActor
     /// </summary>
     public Vector2 Scale { get; set; } = new(2f);
 
+    /// <summary>
+    /// Mirrors the sprite horizontally without using negative scale.
+    /// </summary>
+    public bool FlipHorizontally { get; set; }
 
     // ============================================================
     // Resolved world transform
@@ -252,6 +256,12 @@ public abstract class Entity : ICollisionActor
         = CollisionMode.None;
 
     public Rectangle? MovementBounds { get; set; }
+
+    /// <summary>
+    /// If true, actual player collision with this entity
+    /// teleports the player back to the bottom of the arena.
+    /// </summary>
+    public bool ResetPlayerToBottomOnContact { get; set; }
 
     public Rectangle GetMovementBounds()
     {

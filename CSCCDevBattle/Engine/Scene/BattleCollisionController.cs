@@ -137,6 +137,11 @@ public sealed class BattleCollisionController
                  _collisionSystem.Query(_battle.Player, "obstacles"))
         {
             HandlePlayerCollision(hit);
+
+            // The player has been teleported. Stop processing the
+            // collision results from the old position this frame.
+            if (hit.B.ResetPlayerToBottomOnContact)
+                break;
         }
     }
 
@@ -146,6 +151,21 @@ public sealed class BattleCollisionController
 
         if (other.ContactDamage > 0f)
             _damage.TryDamagePlayer(other.ContactDamage);
+
+        if (other.ResetPlayerToBottomOnContact)
+        {
+            Vector2 min = _battle.Arena.InnerMinimum;
+            Vector2 max = _battle.Arena.InnerMaximum;
+
+            _battle.Player.Position = new Vector2(
+                _battle.Arena.Center.X,
+                max.Y - 22f);
+
+            // Update transforms and collision shapes immediately so
+            // the next collision query uses the new player position.
+            TransformSystem.ResolveAll(_battle.Entities);
+            Synchronize();
+        }
 
         if (other.DestroyOnPlayerContact)
             other.DestroyRequested = true;

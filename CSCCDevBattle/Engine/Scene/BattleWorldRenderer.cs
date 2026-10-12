@@ -70,11 +70,25 @@ public sealed class BattleWorldRenderer
     private static bool IsDrawable(Entity entity) =>
         entity.Enabled && entity.Visible && !entity.DestroyRequested && entity.Texture is not null;
 
-    private void DrawEntity(Game1 game, Entity entity, float playerVisualAlpha)
+    private void DrawEntity(
+    Game1 game,
+    Entity entity,
+    float playerVisualAlpha)
     {
-        game.SpriteBatch.Draw(entity.Texture!, entity.WorldPosition, null,
-            GetEntityDrawTint(entity, playerVisualAlpha), entity.WorldRotation,
-            entity.Origin, entity.WorldScale, SpriteEffects.None, 0f);
+        SpriteEffects effects = entity.FlipHorizontally
+            ? SpriteEffects.FlipHorizontally
+            : SpriteEffects.None;
+
+        game.SpriteBatch.Draw(
+            entity.Texture!,
+            entity.WorldPosition,
+            null,
+            GetEntityDrawTint(entity, playerVisualAlpha),
+            entity.WorldRotation,
+            entity.Origin,
+            entity.WorldScale,
+            effects,
+            0f);
     }
 
     private Color GetEntityDrawTint(Entity entity, float playerVisualAlpha)
@@ -114,8 +128,22 @@ public sealed class BattleWorldRenderer
 
     private static void DrawPixelMask(Game1 game, Entity entity)
     {
-        if (entity.Texture is null) return;
-        game.SpriteBatch.Draw(entity.Texture, entity.WorldPosition, null, Color.Red * 0.45f,
-            entity.WorldRotation, entity.Origin, entity.WorldScale, SpriteEffects.None, 0f);
+        if (entity.Texture is null)
+            return;
+
+        SpriteEffects effects = entity.FlipHorizontally
+            ? SpriteEffects.FlipHorizontally
+            : SpriteEffects.None;
+
+        game.SpriteBatch.Draw(
+            entity.Texture,
+            entity.WorldPosition,
+            null,
+            Color.Red * 0.45f,
+            entity.WorldRotation,
+            entity.Origin,
+            entity.WorldScale,
+            effects,
+            0f);
     }
 }
