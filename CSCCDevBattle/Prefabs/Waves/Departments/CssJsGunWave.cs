@@ -2,20 +2,33 @@
 using System;
 using Microsoft.Xna.Framework;
 
+
 /// <summary>
-/// CSS mutates DOM blocks; the JS gun fires twice and activates two
-/// interactive DOM objects that pursue the player.
-/// The first follower moves unpredictably; the second keeps its
-/// original direct pursuit and vertical wobble.
+/// CSS animates all four DOM blocks throughout the wave.
+/// In JS mode, two followers chase predictably and two pursue
+/// unpredictably with feints and sideways dashes.
+/// The JS gun fires exactly two shots.
 /// </summary>
 public sealed class CssJsGunWave : DepartmentWaveBase
 {
+    private const int TargetCount = 4;
+    private const int PredictableFollowerCount = 2;
+    private const int UnpredictableFollowerCount = 2;
+
     private DepartmentVisualEntity _gun = null!;
 
     private readonly DepartmentVisualEntity[] _targets =
-        new DepartmentVisualEntity[4];
+        new DepartmentVisualEntity[TargetCount];
 
-    private readonly Vector2[] _targetOrigins = new Vector2[4];
+    private readonly Vector2[] _targetOrigins =
+        new Vector2[TargetCount];
+
+    // Independent movement state for each unpredictable follower.
+    private readonly float[] _unpredictableTimers =
+        new float[UnpredictableFollowerCount];
+
+    private readonly Vector2[] _unpredictableDirections =
+        new Vector2[UnpredictableFollowerCount];
 
     private float _shotTimer;
     private int _shotCount;
@@ -23,13 +36,8 @@ public sealed class CssJsGunWave : DepartmentWaveBase
     private int _jsShotsFired;
     private float _interactiveAge;
 
-    // Unpredictable follower movement.
-    private float _unpredictableTimer;
-    private Vector2 _unpredictableDirection;
-
-    private const int FollowerCount = 2;
-    private const float FollowerStartSpeed = 125f;
-    private const float FollowerMaxSpeed = 200f;
+    private const float FollowerStartSpeed = 100f;
+    private const float FollowerMaxSpeed = 180f;
     private const float FollowerAcceleration = 10f;
 
     public CssJsGunWave() => Duration = 12f;
@@ -61,11 +69,10 @@ public sealed class CssJsGunWave : DepartmentWaveBase
             new(6f, -48f),
             new(54f, -12f),
             new(10f, 42f),
-            new(50f, 42f),
-            new(76f, 48f)
+            new(50f, 42f)
         };
 
-        for (int i = 0; i < _targets.Length; i++)
+        for (int i = 0; i < TargetCount; i++)
         {
             _targetOrigins[i] = center + offsets[i];
 
@@ -77,6 +84,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
                 new Color(150, 205, 255));
 
             _targets[i].CollisionSize *= 0.8f;
+            _targets[i].CollisionMode = CollisionMode.None;
         }
 
         _shotTimer = 0.5f;
@@ -85,11 +93,14 @@ public sealed class CssJsGunWave : DepartmentWaveBase
         _jsShotsFired = 0;
         _interactiveAge = 0f;
 
-        _unpredictableTimer = 0f;
-        _unpredictableDirection = Vector2.UnitX;
+        for (int i = 0; i < UnpredictableFollowerCount; i++)
+        {
+            _unpredictableTimers[i] = 0f;
+            _unpredictableDirections[i] = Vector2.UnitX;
+        }
 
         DebugState =
-            "CSS gun entering from the left; blocks are about to be restyled";
+            "CSS animates four DOM blocks; JS activates four followers";
     }
 
     protected override void OnUpdate(
@@ -99,6 +110,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
         Vector2 min = battle.Arena.InnerMinimum;
         Vector2 center = battle.Arena.Center;
 
+        // Gun slides into position.
         float gunTargetX = min.X + 25f;
 
         _gun.Position = new Vector2(
@@ -118,29 +130,27 @@ public sealed class CssJsGunWave : DepartmentWaveBase
 
             _gun.Tint = new Color(255, 245, 175);
 
-            // Only the first two DOM blocks become interactive.
-            for (int i = 0; i < _targets.Length; i++)
+            for (int i = 0; i < TargetCount; i++)
             {
-                if (i < FollowerCount)
-                {
-                    _targets[i].CollisionMode =
-                        CollisionMode.RotatedBox;
+                _targets[i].CollisionMode =
+                    CollisionMode.RotatedBox;
 
-                    _targets[i].CollisionLayer = "obstacles";
-                    _targets[i].ContactDamage = 1f;
-                }
-                else
-                {
-                    _targets[i].CollisionMode = CollisionMode.None;
-                }
+                _targets[i].CollisionLayer = "obstacles";
+                _targets[i].ContactDamage = 1f;
             }
 
             _targets[0].Tint = new Color(255, 140, 200);
             _targets[1].Tint = new Color(255, 180, 110);
+            _targets[2].Tint = new Color(180, 150, 255);
+            _targets[3].Tint = new Color(110, 235, 180);
 
             _interactiveAge = 0f;
-            _unpredictableTimer = 0f;
-            _unpredictableDirection = Vector2.UnitX;
+
+            for (int i = 0; i < UnpredictableFollowerCount; i++)
+            {
+                _unpredictableTimers[i] = 0f;
+                _unpredictableDirections[i] = Vector2.UnitX;
+            }
         }
 
         // CSS mode fires repeatedly.
@@ -155,7 +165,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
                 FireScriptToken(battle);
             }
         }
-        else if (_jsShotsFired < FollowerCount)
+        else if (_jsShotsFired < 2)
         {
             FireScriptToken(battle);
             _jsShotsFired++;
@@ -163,38 +173,18 @@ public sealed class CssJsGunWave : DepartmentWaveBase
 
         if (!_switchedToJs)
         {
-            // CSS mode: animate and restyle all DOM blocks.
-            for (int i = 0; i < _targets.Length; i++)
+            // CSS mode: all four blocks animate at their original positions.
+            for (int i = 0; i < TargetCount; i++)
             {
-                float pulse =
-                    3.15f +
-                    0.65f *
-                    (0.5f + 2f *
-                    MathF.Sin(Elapsed * 3.2f + i * 1.3f));
+                UpdateCssAppearance(i);
 
-                _targets[i].Scale = new Vector2(pulse);
+                float pulse = GetCssPulse(i);
 
                 _targets[i].Position =
                     _targetOrigins[i] +
                     new Vector2(
                         MathF.Sin(Elapsed * 1.8f + i) * 9f,
                         MathF.Sin(Elapsed * 2.7f + i * 1.2f) * 10f);
-
-                _targets[i].Rotation =
-                    MathF.Sin(Elapsed * 2.0f + i) * 0.45f;
-
-                _targets[i].Tint = new Color(
-                    (byte)(110 + 120 *
-                        (0.5f + 0.5f *
-                        MathF.Sin(Elapsed * 2.4f + i))),
-
-                    (byte)(115 + 125 *
-                        (0.5f + 0.5f *
-                        MathF.Sin(Elapsed * 2.8f + i * 1.7f))),
-
-                    (byte)(130 + 120 *
-                        (0.5f + 0.5f *
-                        MathF.Sin(Elapsed * 3.1f + i * 0.8f))));
 
                 _targets[i].CollisionMode =
                     pulse > 1.55f
@@ -207,7 +197,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
         }
         else
         {
-            // JS mode: both followers pursue the player.
+            // JS mode: CSS visuals remain active while every block moves.
             _interactiveAge += deltaTime;
 
             float speed = MathF.Min(
@@ -215,96 +205,134 @@ public sealed class CssJsGunWave : DepartmentWaveBase
                 FollowerStartSpeed +
                 _interactiveAge * FollowerAcceleration);
 
-            // -----------------------------------------------------
-            // FOLLOWER 0: unpredictable pursuit with feints/dashes.
-            // -----------------------------------------------------
-            DepartmentVisualEntity unpredictable = _targets[0];
-
-            _unpredictableTimer -= deltaTime;
-
-            if (_unpredictableTimer <= 0f)
+            // First two followers: predictable direct pursuit.
+            for (int i = 0; i < PredictableFollowerCount; i++)
             {
-                _unpredictableTimer =
-                    0.12f + Random.Shared.NextSingle() * 0.28f;
+                DepartmentVisualEntity follower = _targets[i];
 
-                Vector2 toPlayer =
-                    battle.Player.Position - unpredictable.Position;
+                Vector2 direction = Direction(
+                    follower.Position,
+                    battle.Player.Position);
 
-                if (toPlayer.LengthSquared() > 0.001f)
-                    toPlayer.Normalize();
+                follower.Position += direction * speed * deltaTime;
 
-                // Randomly vary the pursuit angle.
-                float angle =
-                    (Random.Shared.NextSingle() * 2f - 1f) * 1.25f;
+                // Preserve the original vertical wobble.
+                float wobble =
+                    MathF.Sin(Elapsed * 3.4f + i * MathHelper.Pi) *
+                    10f * deltaTime;
 
-                float cos = MathF.Cos(angle);
-                float sin = MathF.Sin(angle);
-
-                _unpredictableDirection = new Vector2(
-                    toPlayer.X * cos - toPlayer.Y * sin,
-                    toPlayer.X * sin + toPlayer.Y * cos);
-
-                // Sometimes make a sharp sideways dash.
-                if (Random.Shared.NextSingle() < 0.3f)
-                {
-                    _unpredictableDirection = new Vector2(
-                        -toPlayer.Y,
-                        toPlayer.X);
-
-                    if (Random.Shared.NextSingle() < 0.5f)
-                        _unpredictableDirection *= -1f;
-
-                    // Keep the dash generally aimed toward the player.
-                    _unpredictableDirection = Vector2.Lerp(
-                        _unpredictableDirection,
-                        toPlayer,
-                        0.45f);
-
-                    if (_unpredictableDirection.LengthSquared() > 0.001f)
-                        _unpredictableDirection.Normalize();
-                }
+                follower.Position += new Vector2(0f, wobble);
             }
 
-            unpredictable.Position +=
-                _unpredictableDirection * speed * deltaTime;
+            // Last two followers: unpredictable pursuit.
+            for (int i = 0; i < UnpredictableFollowerCount; i++)
+            {
+                int targetIndex = PredictableFollowerCount + i;
 
-            unpredictable.Rotation = MathF.Atan2(
-                _unpredictableDirection.Y,
-                _unpredictableDirection.X) * 0.25f;
+                DepartmentVisualEntity follower = _targets[targetIndex];
 
-            unpredictable.Scale = new Vector2(
-                1.65f + 0.5f * MathF.Sin(Elapsed * 4f));
+                _unpredictableTimers[i] -= deltaTime;
 
-            // -----------------------------------------------------
-            // FOLLOWER 1: original direct chase and vertical wobble.
-            // -----------------------------------------------------
-            DepartmentVisualEntity follower = _targets[1];
+                if (_unpredictableTimers[i] <= 0f)
+                {
+                    _unpredictableTimers[i] =
+                        0.12f + Random.Shared.NextSingle() * 0.28f;
 
-            Vector2 direction = Direction(
-                follower.Position,
-                battle.Player.Position);
+                    Vector2 toPlayer =
+                        battle.Player.Position - follower.Position;
 
-            follower.Position += direction * speed * deltaTime;
+                    if (toPlayer.LengthSquared() > 0.001f)
+                        toPlayer.Normalize();
 
-            float wobble =
-                MathF.Sin(Elapsed * 3.4f + MathHelper.Pi) *
-                10f * deltaTime;
+                    // Random pursuit angle.
+                    float angle =
+                        (Random.Shared.NextSingle() * 2f - 1f) * 1.25f;
 
-            follower.Position += new Vector2(0f, wobble);
+                    float cos = MathF.Cos(angle);
+                    float sin = MathF.Sin(angle);
 
-            follower.Rotation = MathF.Atan2(
-                direction.Y,
-                direction.X) * 0.25f;
+                    Vector2 direction = new(
+                        toPlayer.X * cos - toPlayer.Y * sin,
+                        toPlayer.X * sin + toPlayer.Y * cos);
 
-            follower.Scale = new Vector2(
-                2.65f + 0.15f *
-                MathF.Sin(Elapsed * 4f + 0.8f));
+                    // Sometimes dash sideways, blending back toward the player.
+                    if (Random.Shared.NextSingle() < 0.3f)
+                    {
+                        direction = new Vector2(
+                            -toPlayer.Y,
+                            toPlayer.X);
+
+                        if (Random.Shared.NextSingle() < 0.5f)
+                            direction *= -1f;
+
+                        direction = Vector2.Lerp(
+                            direction,
+                            toPlayer,
+                            0.45f);
+                    }
+
+                    if (direction.LengthSquared() > 0.001f)
+                        direction.Normalize();
+
+                    _unpredictableDirections[i] = direction;
+                }
+
+                follower.Position +=
+                    _unpredictableDirections[i] * speed * deltaTime;
+            }
+
+            // Keep the CSS pulse, rotation, and color effects running
+            // AFTER movement, so they never reset follower positions.
+            for (int i = 0; i < TargetCount; i++)
+            {
+                UpdateCssAppearance(i);
+
+                _targets[i].CollisionMode = CollisionMode.RotatedBox;
+                _targets[i].CollisionLayer = "obstacles";
+                _targets[i].ContactDamage = 1f;
+            }
         }
 
         DebugState = _switchedToJs
-            ? $"JS mode: followers=2; JS shots={_jsShotsFired}/2; " +
+            ? $"JS mode: predictable=2; unpredictable=2; " +
+              $"shots={_jsShotsFired}/2; " +
               $"speed={MathF.Min(FollowerMaxSpeed, FollowerStartSpeed + _interactiveAge * FollowerAcceleration):0}px/s"
-            : $"CSS mode: restyling animated DOM blocks; CSS tokens={_shotCount}";
+            : $"CSS mode: four animated DOM blocks; CSS tokens={_shotCount}";
+    }
+
+    /// <summary>
+    /// Applies the original CSS pulse, rotation, and color animation.
+    /// Does not change the entity's position.
+    /// </summary>
+    private void UpdateCssAppearance(int i)
+    {
+        DepartmentVisualEntity target = _targets[i];
+
+        target.Scale = new Vector2(GetCssPulse(i));
+
+        target.Rotation =
+            MathF.Sin(Elapsed * 2.0f + i) * 0.45f;
+
+        target.Tint = new Color(
+            (byte)(110 + 120 *
+                (0.5f + 0.5f *
+                MathF.Sin(Elapsed * 2.4f + i))),
+
+            (byte)(115 + 125 *
+                (0.5f + 0.5f *
+                MathF.Sin(Elapsed * 2.8f + i * 1.7f))),
+
+            (byte)(130 + 120 *
+                (0.5f + 0.5f *
+                MathF.Sin(Elapsed * 3.1f + i * 0.8f))));
+    }
+
+    private float GetCssPulse(int i)
+    {
+        return 3.15f +
+            0.65f *
+            (0.5f + 2f *
+            MathF.Sin(Elapsed * 3.2f + i * 1.3f));
     }
 
     private void FireScriptToken(BattleContext battle)
@@ -315,7 +343,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
 
         if (!_switchedToJs)
         {
-            int targetIndex = _shotCount % _targets.Length;
+            int targetIndex = _shotCount % TargetCount;
 
             Vector2 direction = Direction(
                 origin,
@@ -334,8 +362,8 @@ public sealed class CssJsGunWave : DepartmentWaveBase
         }
         else
         {
-            // Aim each JS shot at a different follower.
-            int targetIndex = _jsShotsFired % FollowerCount;
+            // Exactly two JS shots, aimed at the first two followers.
+            int targetIndex = _jsShotsFired % PredictableFollowerCount;
 
             Vector2 direction = Direction(
                 origin,
