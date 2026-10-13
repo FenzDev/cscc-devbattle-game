@@ -75,7 +75,7 @@ public sealed class GameOverScene : Scene
 
         DrawCentered(batch, game.FontTitle, "GAME OVER", 70f, new Color(255, 75, 75));
         DrawCentered(batch, game.FontText, $"{_playerName} WAS DEFEATED", 125f, Color.White);
-        DrawCentered(batch, game.FontText, "THE DEPARTMENT WON THIS ROUND.", 465f, Color.LightGray);
+        DrawCentered(batch, game.FontText, "WAKE UP... YOU CAN MAKE THE DIFFERENCE...", 465f, Color.FromNonPremultiplied(0x6b,0xa3,0xff,0xff));
         DrawCentered(batch, game.FontText, "PRESS ANY KEY TO RETURN", 510f, Color.Yellow);
 
         if (_fade > 0f)

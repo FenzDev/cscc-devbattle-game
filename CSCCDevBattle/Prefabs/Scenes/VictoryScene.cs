@@ -38,13 +38,17 @@ public sealed class VictoryScene : Scene
         SpriteBatch batch = game.SpriteBatch;
         batch.Begin(samplerState: SamplerState.PointClamp);
 
+        if (game.PlayerName.Equals("envy", StringComparison.OrdinalIgnoreCase))
+        {
+            batch.Draw(Assets.GetTexture("envy"), new Rectangle(96,74,400,528-74), Color.White);
+        }
+
         batch.Draw(game.Pixel, new Rectangle(34, 72, 532, 2), new Color(130, 130, 130));
         batch.Draw(game.Pixel, new Rectangle(34, 528, 532, 2), new Color(130, 130, 130));
         DrawCentered(batch, game.FontTitle, "VICTORY", 126f, Color.Yellow);
-        DrawCentered(batch, game.FontText, _playerName, 232f, Color.White);
+        DrawCentered(batch, game.FontText, _playerName, 232f, Color.FromNonPremultiplied(0.45f,0.5f,1.0f,1.0f));
         DrawCentered(batch, game.FontText, "YOU WON THE", 292f, Color.LightGray);
-        DrawCentered(batch, game.FontTitle, "CSCC DEV BATTLE", 340f, Color.Yellow);
-        DrawCentered(batch, game.FontText, "MOBILE  /  WEB  /  AI  -  DEFEATED", 420f, Color.White);
+        DrawCentered(batch, game.FontTitle, "CSCC DEV BATTLE", 340f, Color.FromNonPremultiplied(0.45f,0.5f,1.0f,1.0f));
         DrawCentered(batch, game.FontText, "PRESS ANY KEY TO CONTINUE", 474f, Color.LightGray);
 
         if (_fade > 0f)

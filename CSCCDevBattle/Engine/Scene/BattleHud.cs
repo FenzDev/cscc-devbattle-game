@@ -248,7 +248,7 @@ public sealed class BattleHud
         Vector2 position)
     {
         SpriteBatch spriteBatch = game.SpriteBatch;
-        var font = game.FontText;
+        var font = game.FontDialog;
         string text = dialog.Text;
         int visibleCount = Math.Clamp(dialog.VisibleCharacterCount, 0, text.Length);
         float lineHeight = font.MeasureString("Ag").Y + 2f;

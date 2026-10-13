@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework.Input;
 /// <summary>Name-entry title screen. Names are normalized to uppercase before starting battle.</summary>
 public sealed class MainMenuScene : Scene
 {
-    private const float FadeSpeed = 5f;
+    private const float FadeSpeed = 0.8f;
     private const int MaxNameLength = 14;
     private float _fade = 1f;
     private string _name;
@@ -76,23 +76,31 @@ public sealed class MainMenuScene : Scene
         // Restrained retro terminal framing.
         batch.Draw(game.Pixel, new Rectangle(38, 54, 524, 2), new Color(105, 105, 105));
         batch.Draw(game.Pixel, new Rectangle(38, 544, 524, 2), new Color(105, 105, 105));
+        
+        batch.Draw(Assets.GetTexture("cscc"), new Rectangle(48,60,24*4, 24*4), Color.White);
 
-        DrawCentered(batch, game.FontTitle, "CSCC DEV BATTLE", 110f, Color.Yellow);
-        DrawCentered(batch, game.FontText, "A DEPARTMENT SURVIVAL CHALLENGE", 178f, Color.LightGray);
-        DrawCentered(batch, game.FontText, "ENTER YOUR NAME", 270f, Color.White);
+        DrawCentered(batch, game.FontTitle, "CSCC DEV BATTLE", 110f, Color.FromNonPremultiplied(0x6b,0xa3,0xff,0xff));
+        DrawCentered(batch, game.FontText, "DEV DEPARTMENT SURVIVAL CHALLENGE", 178f, Color.LightGray);
+        DrawCentered(batch, game.FontText, "MOBILE  /  WEB  /  AI", 205f, new Color(155, 155, 155));
+        DrawCentered(batch, game.FontText, "ENTER YOUR NAME", 280f, Color.White);
 
         Rectangle nameBox = new(110, 316, 380, 54);
         batch.Draw(game.Pixel, nameBox, new Color(18, 20, 29));
         DrawOutline(batch, game.Pixel, nameBox, 2, new Color(185, 185, 185));
         string visibleName = string.IsNullOrEmpty(_name) ? "PLAYER" : _name;
-        DrawCentered(batch, game.FontTitle, visibleName, 318f, string.IsNullOrWhiteSpace(_name)? Color.Gray: Color.Yellow);
+        DrawCentered(batch, game.FontTitle, visibleName, 310f, string.IsNullOrWhiteSpace(_name)? Color.Gray: Color.FromNonPremultiplied(0x6b,0xa3,0xff,0xff));
 
-        DrawCentered(batch, game.FontText, "TYPE TO EDIT  |  BACKSPACE TO DELETE", 405f, Color.LightGray);
-        DrawCentered(batch, game.FontText, "ENTER  -  START ENCOUNTER", 465f, Color.White);
-        DrawCentered(batch, game.FontText, "MOBILE  /  WEB  /  AI", 510f, new Color(155, 155, 155));
+        // DrawCentered(batch, game.FontText, "TYPE TO EDIT", 405f, Color.LightGray);
+        DrawCentered(batch, game.FontText, "Press ENTER to START", 465f, Color.White);
 
         if (_fade > 0f)
+        {
             batch.Draw(game.Pixel, new Rectangle(0, 0, Game1.BASE_SCREEN_WIDTH, Game1.BASE_SCREEN_HEIGHT), Color.Black * _fade);
+            DrawCentered(batch, game.FontTitle, visibleName, 310f, Color.FromNonPremultiplied(0x6b,0xa3,0xff,0xff));
+            
+        }
+        
+        batch.Draw(Assets.GetTexture("cscc-player"), new Rectangle(48,60,24*4, 24*4), Color.White);
 
         batch.End();
     }

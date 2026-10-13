@@ -67,6 +67,10 @@ public class BattleScene : Scene
 
     public override TransitionState SetupTick(GameTime gameTime)
     {
+        if (_fade == 1f)
+        {
+            Tick(gameTime, Game1.Singleton);
+        }
         _fade = MathF.Max(0f, _fade - FadeSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds);
         return _fade > 0f ? TransitionState.InProgress : TransitionState.Finished;
     }

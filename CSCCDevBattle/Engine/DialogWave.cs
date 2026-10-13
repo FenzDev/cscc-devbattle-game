@@ -1,3 +1,4 @@
+
 using System;
 
 public sealed class DialogWave : BattleWave
@@ -6,11 +7,9 @@ public sealed class DialogWave : BattleWave
     public string Text { get; }
 
     // Time between characters, in seconds.
-    // 0.035 means approximately 28 characters per second.
     public float SecondsPerCharacter { get; }
 
-    // Maximum random displacement in pixels, independently
-    // for X and Y. A value of 2 means offsets from -2 to +2.
+    // Maximum random displacement in pixels.
     public float ShakeAmount { get; }
 
     public int VisibleCharacterCount { get; private set; }
@@ -20,6 +19,7 @@ public sealed class DialogWave : BattleWave
 
     private float _revealAccumulator;
     private bool _ignoreInputOnFirstUpdate;
+    private bool _skipRequested;
 
     public DialogWave(
         string speaker,
@@ -33,7 +33,6 @@ public sealed class DialogWave : BattleWave
 
         Speaker = speaker;
 
-        // Normalize Windows and Unix line endings.
         Text = text
             .Replace("\r\n", "\n")
             .Replace('\r', '\n');
@@ -46,8 +45,6 @@ public sealed class DialogWave : BattleWave
             0f,
             shakeAmount);
 
-        // Never allow the typewriter effect to outlast the wave.
-        // Duration remains the minimum requested total duration.
         Duration = MathF.Max(
             MathF.Max(0f, duration),
             Text.Length * SecondsPerCharacter);
@@ -57,9 +54,10 @@ public sealed class DialogWave : BattleWave
     {
         VisibleCharacterCount = 0;
         _revealAccumulator = 0f;
+        _skipRequested = false;
 
-        // Prevent the key used to start an encounter from
-        // instantly skipping its first dialogue.
+        // Prevent the key that started the encounter from
+        // immediately skipping its first dialogue.
         _ignoreInputOnFirstUpdate = true;
     }
 
@@ -67,18 +65,27 @@ public sealed class DialogWave : BattleWave
         BattleContext battle,
         float deltaTime)
     {
-        bool allowSkip = !_ignoreInputOnFirstUpdate;
+        bool allowInput = !_ignoreInputOnFirstUpdate;
         _ignoreInputOnFirstUpdate = false;
 
-        if (!IsFullyRevealed)
+        if (allowInput && Input.AnyKeyPressed())
         {
-            // Reveal everything immediately when a key is pressed.
-            if (allowSkip && Input.AnyKeyPressed())
+            if (!IsFullyRevealed)
             {
+                // First press: reveal all text immediately.
                 VisibleCharacterCount = Text.Length;
                 _revealAccumulator = 0f;
             }
-            else if (SecondsPerCharacter <= 0f)
+            else
+            {
+                // Second press: finish the dialogue immediately.
+                _skipRequested = true;
+            }
+        }
+
+        if (!IsFullyRevealed && !_skipRequested)
+        {
+            if (SecondsPerCharacter <= 0f)
             {
                 VisibleCharacterCount = Text.Length;
             }
@@ -101,9 +108,17 @@ public sealed class DialogWave : BattleWave
             }
         }
 
-        // Ensure no character is left unrevealed when the
-        // base BattleWave duration reaches its endpoint.
         if (Elapsed >= Duration)
+        {
             VisibleCharacterCount = Text.Length;
+        }
+
+        if (_skipRequested)
+        {
+            // End this wave rather than waiting for its original timer.
+            // BattleWave must support ending early for this to take effect.
+            Duration = MathF.Min(Duration, Elapsed);
+            VisibleCharacterCount = Text.Length;
+        }
     }
 }
