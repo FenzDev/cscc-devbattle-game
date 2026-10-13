@@ -88,8 +88,8 @@ public sealed class HttpClientTrafficWave : DepartmentWaveBase
         UpdateHtmlCarriers(battle, deltaTime);
 
         float bob = MathF.Sin(Elapsed * 1.6f) * 4f;
-        _client.Position = new Vector2(battle.Arena.Minimum.X - 38f, battle.Arena.Center.Y + bob);
-        _server.Position = new Vector2(battle.Arena.Maximum.X + 38f, battle.Arena.Center.Y - bob);
+        _client.Position = new Vector2(battle.Arena.Minimum.X - 64f, battle.Arena.Center.Y + bob);
+        _server.Position = new Vector2(battle.Arena.Maximum.X + 64f, battle.Arena.Center.Y - bob);
         DebugState = $"HTTP transactions={_packetIndex}; HTML DOM splits={_htmlSplits}; ordered file traffic";
     }
 

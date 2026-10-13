@@ -56,7 +56,7 @@ public sealed class DeliveryTrafficWave : DepartmentWaveBase
         battle.PlayerMovementSpeedMultiplier = PlayerSpeedMultiplier;
         battle.Player.Position = new Vector2(
             battle.Arena.Center.X,
-            max.Y - 22f);
+            max.Y - 12f);
 
         _spawnTimer = 0.2f;
         _truckIndex = 0;

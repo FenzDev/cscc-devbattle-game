@@ -32,8 +32,8 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
 
     private const int RowCount = 10;
 
-    private const float FingerScale = 2f;
-    private const float FingerSpeed = 76f;
+    private const float FingerScale = 3f;
+    private const float FingerSpeed = 64f;
     private const float PlayerSpeedMultiplier = 0.72f;
 
     private const float ScrollSpeed = 48f;
@@ -56,6 +56,9 @@ public sealed class MobileScrollerWave : DepartmentWaveBase
     protected override void OnStart(BattleContext battle)
     {
         _rows.Clear();
+
+        battle.DamageCooldownDuration = 2f;
+        battle.DamageCooldownRemaining = 2f;
 
         Vector2 min = battle.Arena.InnerMinimum;
         Vector2 max = battle.Arena.InnerMaximum;
