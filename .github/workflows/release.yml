@@ -22,29 +22,59 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore ContentBuilder
-        run: dotnet restore ContentBuilder/ContentBuilder.csproj -r win-x64
-
-      - name: Restore game
-        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r win-x64
-
-      - name: Publish Windows build
-        run: dotnet publish CSCCDevBattle/CSCCDevBattle.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish
-
-      - name: Package Windows release
+      - name: Prepare diagnostic logs
         shell: pwsh
         run: |
-          Compress-Archive `
-            -Path artifacts/publish/* `
-            -DestinationPath CSCCDevBattle-win-x64.zip `
-            -Force
+          New-Item -ItemType Directory -Force artifacts/logs | Out-Null
+          dotnet --info *> artifacts/logs/dotnet-info.txt
+          dotnet --list-sdks *> artifacts/logs/dotnet-sdks.txt
 
-      - name: Upload Windows release
+      - name: Restore ContentBuilder
+        shell: pwsh
+        run: |
+          dotnet restore ContentBuilder/ContentBuilder.csproj -r win-x64 -v:diag 2>&1 |
+            Tee-Object -FilePath artifacts/logs/restore-contentbuilder.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Restore game
+        shell: pwsh
+        run: |
+          dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r win-x64 -v:diag 2>&1 |
+            Tee-Object -FilePath artifacts/logs/restore-game.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish Windows
+        shell: pwsh
+        run: |
+          dotnet publish CSCCDevBattle/CSCCDevBattle.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -o artifacts/publish -v:diag 2>&1 |
+            Tee-Object -FilePath artifacts/logs/publish-windows.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package Windows
+        if: success()
+        shell: pwsh
+        run: |
+          Compress-Archive -Path artifacts/publish/* `
+            -DestinationPath CSCCDevBattle-win-x64.zip -Force
+
+      - name: Upload Windows package
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: CSCCDevBattle-win-x64.zip
           if-no-files-found: error
+
+      - name: Upload Windows diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-diagnostic-logs
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 7
 
   build-linux:
     name: Build Linux
@@ -59,29 +89,59 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Install ZIP utility
-        run: sudo apt-get update && sudo apt-get install -y zip
+      - name: Prepare diagnostic logs
+        run: |
+          mkdir -p artifacts/logs
+          dotnet --info > artifacts/logs/dotnet-info.txt 2>&1
+          dotnet --list-sdks > artifacts/logs/dotnet-sdks.txt 2>&1
 
       - name: Restore ContentBuilder
-        run: dotnet restore ContentBuilder/ContentBuilder.csproj -r linux-x64
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet restore ContentBuilder/ContentBuilder.csproj \
+            -r linux-x64 -v:diag 2>&1 |
+            tee artifacts/logs/restore-contentbuilder.txt
 
       - name: Restore game
-        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r linux-x64
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet restore CSCCDevBattle/CSCCDevBattle.csproj \
+            -r linux-x64 -v:diag 2>&1 |
+            tee artifacts/logs/restore-game.txt
 
-      - name: Publish Linux build
-        run: dotnet publish CSCCDevBattle/CSCCDevBattle.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish
+      - name: Publish Linux
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet publish CSCCDevBattle/CSCCDevBattle.csproj \
+            -c Release -r linux-x64 --self-contained true \
+            -o artifacts/publish -v:diag 2>&1 |
+            tee artifacts/logs/publish-linux.txt
 
-      - name: Package Linux release
+      - name: Package Linux
+        if: success()
         run: |
           cd artifacts/publish
           zip -r ../../CSCCDevBattle-linux-x64.zip .
 
-      - name: Upload Linux release
+      - name: Upload Linux package
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
           path: CSCCDevBattle-linux-x64.zip
           if-no-files-found: error
+
+      - name: Upload Linux diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-diagnostic-logs
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 7
 
   release:
     name: Create GitHub Release
@@ -94,6 +154,7 @@ jobs:
       - name: Download release packages
         uses: actions/download-artifact@v4
         with:
+          pattern: "*-release"
           path: dist
           merge-multiple: true
 
