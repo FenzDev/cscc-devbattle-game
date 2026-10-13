@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build-windows:
+    name: Build Windows
     runs-on: windows-latest
 
     steps:
@@ -25,7 +26,7 @@ jobs:
         run: dotnet restore ContentBuilder/ContentBuilder.csproj
 
       - name: Restore game
-        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r ${{ matrix.runtime }}
+        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r win-x64
 
       - name: Publish Windows build
         run: dotnet publish CSCCDevBattle/CSCCDevBattle.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish
@@ -38,8 +39,10 @@ jobs:
         with:
           name: windows-release
           path: CSCCDevBattle-win-x64.zip
+          if-no-files-found: error
 
   build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
 
     steps:
@@ -51,7 +54,13 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
+      - name: Install ZIP utility
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Restore ContentBuilder
+        run: dotnet restore ContentBuilder/ContentBuilder.csproj
+
+      - name: Restore game
         run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r linux-x64
 
       - name: Publish Linux build
@@ -67,9 +76,13 @@ jobs:
         with:
           name: linux-release
           path: CSCCDevBattle-linux-x64.zip
+          if-no-files-found: error
 
   release:
-    needs: [build-windows, build-linux]
+    name: Create GitHub Release
+    needs:
+      - build-windows
+      - build-linux
     runs-on: ubuntu-latest
 
     steps:
@@ -83,4 +96,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/*
+          files: |
+            dist/CSCCDevBattle-win-x64.zip
+            dist/CSCCDevBattle-linux-x64.zip
