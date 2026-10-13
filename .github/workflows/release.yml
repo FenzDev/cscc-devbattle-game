@@ -21,8 +21,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
-        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r win-x64
+      - name: Restore ContentBuilder
+        run: dotnet restore ContentBuilder/ContentBuilder.csproj
+
+      - name: Restore game
+        run: dotnet restore CSCCDevBattle/CSCCDevBattle.csproj -r ${{ matrix.runtime }}
 
       - name: Publish Windows build
         run: dotnet publish CSCCDevBattle/CSCCDevBattle.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish
