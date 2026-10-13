@@ -159,7 +159,7 @@ public sealed class BattleCollisionController
 
             _battle.Player.Position = new Vector2(
                 _battle.Arena.Center.X,
-                max.Y - 22f);
+                max.Y - 10f);
 
             // Update transforms and collision shapes immediately so
             // the next collision query uses the new player position.

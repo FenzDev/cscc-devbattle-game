@@ -61,16 +61,16 @@ public sealed class GameOverScene : Scene
             // Sideways, dimmed, and cracked: a simple broken pose using the existing player sprite.
             batch.Draw(_playerTexture, _playerPosition, null, new Color(150, 150, 150),
                 _playerRotation + MathHelper.PiOver2, origin, new Vector2(2f), SpriteEffects.None, 0f);
-            batch.Draw(game.Pixel,
-                new Vector2(_playerPosition.X - 3f, _playerPosition.Y), null,
-                new Color(90, 20, 24), 0.45f, new Vector2(0.5f), new Vector2(7f, 1.5f),
-                SpriteEffects.None, 0f);
-            batch.Draw(game.Pixel,
-                new Rectangle((int)_playerPosition.X - 11, (int)_playerPosition.Y + 8, 3, 2),
-                new Color(140, 45, 45));
-            batch.Draw(game.Pixel,
-                new Rectangle((int)_playerPosition.X + 8, (int)_playerPosition.Y - 7, 2, 2),
-                new Color(140, 45, 45));
+            // batch.Draw(game.Pixel,
+            //     new Vector2(_playerPosition.X - 3f, _playerPosition.Y), null,
+            //     new Color(90, 20, 24), 0.45f, new Vector2(0.5f), new Vector2(7f, 1.5f),
+            //     SpriteEffects.None, 0f);
+            // batch.Draw(game.Pixel,
+            //     new Rectangle((int)_playerPosition.X - 11, (int)_playerPosition.Y + 8, 3, 2),
+            //     new Color(140, 45, 45));
+            // batch.Draw(game.Pixel,
+            //     new Rectangle((int)_playerPosition.X + 8, (int)_playerPosition.Y - 7, 2, 2),
+            //     new Color(140, 45, 45));
         }
 
         DrawCentered(batch, game.FontTitle, "GAME OVER", 70f, new Color(255, 75, 75));

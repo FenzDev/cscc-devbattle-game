@@ -40,7 +40,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
     private const float FollowerMaxSpeed = 180f;
     private const float FollowerAcceleration = 10f;
 
-    public CssJsGunWave() => Duration = 12f;
+    public CssJsGunWave() => Duration = 18f;
 
     public override Vector2 ArenaSize => new(280f, 240f);
 
@@ -111,7 +111,7 @@ public sealed class CssJsGunWave : DepartmentWaveBase
         Vector2 center = battle.Arena.Center;
 
         // Gun slides into position.
-        float gunTargetX = min.X + 25f;
+        float gunTargetX = min.X - 32f;
 
         _gun.Position = new Vector2(
             MathHelper.Lerp(
