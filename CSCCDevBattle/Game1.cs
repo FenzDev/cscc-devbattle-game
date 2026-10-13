@@ -47,7 +47,7 @@ public class Game1 : Game
 #if DEBUG
     _graphics.PreferredBackBufferWidth = DEBUG_SCREEN_WIDTH;
     _graphics.PreferredBackBufferHeight = DEBUG_SCREEN_HEIGHT;
-    _graphics.IsFullScreen = false;
+    _graphics.IsFullScreen = true;
 #else
         _graphics.PreferredBackBufferWidth = BASE_SCREEN_WIDTH;
         _graphics.PreferredBackBufferHeight = BASE_SCREEN_HEIGHT;
@@ -57,6 +57,8 @@ public class Game1 : Game
 
   protected override void LoadContent()
   {
+    _graphics.IsFullScreen = true;
+
     SpriteBatch = new SpriteBatch(GraphicsDevice);
     Pixel = new Texture2D(GraphicsDevice, 1, 1);
     Pixel.SetData([Color.White]);
