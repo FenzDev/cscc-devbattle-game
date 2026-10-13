@@ -57,9 +57,9 @@ public sealed class LocationLaserWave : DepartmentWaveBase
             min.Y + 20f + Random.Shared.NextSingle() * (max.Y - min.Y - 40f));
         Vector2 direction = Direction(start, battle.Player.Position);
         float angle = MathF.Atan2(direction.Y, direction.X);
-        float length = MathHelper.Clamp(2f * Vector2.Distance(start, battle.Player.Position) + 35f,
+        float length = MathHelper.Clamp(Vector2.Distance(start, battle.Player.Position) + 35f,
             42f, MathF.Sqrt(battle.Arena.Size.LengthSquared()) + 24f);
-        Vector2 beamCenter = start + direction * (length * 2f);
+        Vector2 beamCenter = start + direction  * (length * 0.55f);
 
         DepartmentVisualEntity arrow = Sprite(battle, start,
             "Battle/Projectiles/Mobile/ProjectileMapsArrow", 3.4f, Color.White);
