@@ -13,9 +13,9 @@ public sealed class BattleContext
 
     public string PlayerName { get; set; } = "PLAYER";
 
-    public float PlayerMaxHealth { get; set; } = 20f;
+    public float PlayerMaxHealth { get; set; } = 40f;
 
-    public float PlayerHealth { get; set; } = 20f;
+    public float PlayerHealth { get; set; } = 40f;
 
     public bool PlayerMovementEnabled { get; set; }
 
